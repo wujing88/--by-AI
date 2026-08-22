@@ -1,6 +1,6 @@
 export type AppState = 'IDLE' | 'PREPARING' | 'RUNNING' | 'COOLDOWN' | 'CLIMAX';
 export type BpmState = 30 | 60 | 90 | 120;
-export type ThemeType = 'peach' | 'mint' | 'taro' | 'cheese';
+export type ThemeType = 'peach' | 'mint' | 'taro' | 'cheese' | 'midnight';
 export type PlayMode = 'MANUAL' | 'RANDOM' | 'AUTO';
 export type SoundType = 'impact' | 'moist' | 'slap' | 'breath' | 'spring' | 'heartbeat';
 
@@ -70,6 +70,26 @@ export const PHRASES = {
   ]
 };
 
+export interface UserStats {
+  version: number;
+  totalSeconds: number;
+  totalCycles: number;
+  completedSessions: number;
+  dailyActivity: Record<string, number>; // YYYY-MM-DD -> seconds trained
+  lastActiveDate?: string;
+  streakDays?: number;
+}
+
+export interface DayActivity {
+  date: string; // YYYY-MM-DD
+  dayName: string; // e.g. "周一", "今天"
+  dateLabel: string; // e.g. "8/22"
+  seconds: number;
+  minutes: number;
+  level: 0 | 1 | 2 | 3 | 4; // Intensity level for pink heatmap
+  isToday: boolean;
+}
+
 export const THEMES: Record<ThemeType, any> = {
   peach: {
     appBg: 'bg-rose-50',
@@ -122,5 +142,19 @@ export const THEMES: Record<ThemeType, any> = {
     buttonBg: 'bg-white text-amber-600 border border-amber-100',
     buttonHover: 'hover:bg-amber-50 hover:shadow-md hover:-translate-y-0.5',
     particleColors: ['#f59e0b', '#d97706', '#fef3c7', '#fde68a']
+  },
+  midnight: {
+    appBg: 'bg-[#0b0813]',
+    cardBg: 'bg-[#151026]/90 backdrop-blur-2xl',
+    text: 'text-rose-100',
+    accent: 'text-rose-400',
+    progress: 'bg-gradient-to-r from-purple-500 to-rose-500',
+    border: 'border-purple-900/40',
+    shadow: 'shadow-[0_15px_50px_rgba(0,0,0,0.6)]',
+    glow: 'rgba(217,70,239,0.08)',
+    buttonBg: 'bg-[#211938] text-rose-200 border border-purple-800/50',
+    buttonHover: 'hover:bg-[#2c224a] hover:shadow-md hover:-translate-y-0.5',
+    particleColors: ['#f43f5e', '#d946ef', '#a855f7', '#6366f1'],
+    isDark: true
   }
 };

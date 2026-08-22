@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { 
   Play, 
   RotateCcw, 
@@ -25,10 +25,22 @@ import {
   Trophy,
   Clock,
   FastForward,
-  Heart
+  Heart,
+  Smartphone,
+  BarChart3,
+  Eye,
+  EyeOff,
+  Moon,
+  Sun,
+  Monitor
 } from 'lucide-react';
 import { metronome } from './utils/audio';
 import ParticleEffect from './components/ParticleEffect';
+import WeeklyActivityChart from './components/WeeklyActivityChart';
+import LiveClockBadge from './components/LiveClockBadge';
+import OnlineUserBadge from './components/OnlineUserBadge';
+import RhythmWaveform from './components/RhythmWaveform';
+import { realtimePresence } from './utils/realtime';
 import { 
   AppState, 
   BpmState, 
@@ -37,28 +49,47 @@ import {
   PHRASES, 
   PlayMode, 
   SoundType, 
-  SOUND_PRESETS 
+  SOUND_PRESETS,
+  UserStats 
 } from './types';
+import {
+  getUserStats,
+  saveUserStats,
+  recordTrainingSeconds,
+  recordCycle,
+  recordSession,
+  getStoredMuted,
+  setStoredMuted,
+  getStoredTheme,
+  setStoredTheme,
+  getStoredFollowSystemTheme,
+  setStoredFollowSystemTheme,
+  getStoredFavoriteLightTheme,
+  setStoredFavoriteLightTheme,
+  getStoredSoundType,
+  setStoredSoundType,
+  getStoredAutoCycles,
+  setStoredAutoCycles
+} from './utils/storage';
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>('IDLE');
   const [playMode, setPlayMode] = useState<PlayMode>('AUTO');
   const [bpm, setBpm] = useState<BpmState>(30);
   const [prevBpm, setPrevBpm] = useState<BpmState>(30);
-  const [theme, setTheme] = useState<ThemeType>('peach');
-  const [soundType, setSoundType] = useState<SoundType>('impact');
+  const [theme, setTheme] = useState<ThemeType>(() => getStoredTheme());
+  const [followSystemTheme, setFollowSystemTheme] = useState<boolean>(() => getStoredFollowSystemTheme(true));
+  const [favoriteLightTheme, setFavoriteLightTheme] = useState<ThemeType>(() => getStoredFavoriteLightTheme('peach'));
+  const [systemIsDark, setSystemIsDark] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+  const [soundType, setSoundType] = useState<SoundType>(() => getStoredSoundType());
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [totalDuration, setTotalDuration] = useState<number>(1);
   const [phrase, setPhrase] = useState<string>('');
   const [audioEnabled, setAudioEnabled] = useState(false);
-  const [muted, setMuted] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('rhythm_muted');
-      return saved === 'true';
-    } catch {
-      return false;
-    }
-  });
+  const [muted, setMuted] = useState<boolean>(() => getStoredMuted());
   const [showParticles, setShowParticles] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<'sound' | 'theme'>('sound');
@@ -66,7 +97,7 @@ export default function App() {
   const [isPressing, setIsPressing] = useState(false);
 
   // Progressive Cycle Settings
-  const [autoCycles, setAutoCycles] = useState<number>(2); // Default recommended 2 cycles
+  const [autoCycles, setAutoCycles] = useState<number>(() => getStoredAutoCycles()); // Default recommended 2 cycles
   const [currentCycle, setCurrentCycle] = useState<number>(1);
   const [showCycleWhy, setShowCycleWhy] = useState<boolean>(false);
 
@@ -74,31 +105,69 @@ export default function App() {
   const [targetMode, setTargetMode] = useState<PlayMode>('AUTO');
   const [prepCount, setPrepCount] = useState<number>(3);
 
-  // User Cumulative History Stats
-  const [userStats, setUserStats] = useState<{
-    totalSeconds: number;
-    totalCycles: number;
-    completedSessions: number;
-  }>(() => {
-    try {
-      const saved = localStorage.getItem('rhythm_user_stats');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return { totalSeconds: 0, totalCycles: 0, completedSessions: 0 };
-  });
+  // User Cumulative History Stats (Loaded & Migrated via storage.ts)
+  const [userStats, setUserStats] = useState<UserStats>(() => getUserStats());
 
-  // Save Stats to LocalStorage
+  // Sync settings changes to storage
   useEffect(() => {
-    try {
-      localStorage.setItem('rhythm_user_stats', JSON.stringify(userStats));
-    } catch (e) {
-      console.error(e);
+    setStoredTheme(theme);
+  }, [theme]);
+
+  useEffect(() => {
+    setStoredFollowSystemTheme(followSystemTheme);
+  }, [followSystemTheme]);
+
+  useEffect(() => {
+    setStoredFavoriteLightTheme(favoriteLightTheme);
+  }, [favoriteLightTheme]);
+
+  // Real-time listener for system dark mode (prefers-color-scheme)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    const syncThemeWithSystem = (isDark: boolean) => {
+      setSystemIsDark(isDark);
+      if (followSystemTheme) {
+        setTheme(isDark ? 'midnight' : favoriteLightTheme);
+      }
+    };
+
+    // Initial check on mount or when mode changes
+    syncThemeWithSystem(mediaQuery.matches);
+
+    const handler = (e: MediaQueryListEvent) => {
+      syncThemeWithSystem(e.matches);
+    };
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handler);
+      return () => mediaQuery.removeEventListener('change', handler);
+    } else if (mediaQuery.addListener) {
+      mediaQuery.addListener(handler);
+      return () => mediaQuery.removeListener(handler);
     }
-  }, [userStats]);
+  }, [followSystemTheme, favoriteLightTheme]);
+
+  useEffect(() => {
+    setStoredSoundType(soundType);
+    metronome.setSoundType(soundType);
+  }, [soundType]);
+
+  useEffect(() => {
+    setStoredAutoCycles(autoCycles);
+  }, [autoCycles]);
+
+  useEffect(() => {
+    setStoredMuted(muted);
+    metronome.setMuted(muted);
+  }, [muted]);
+
+  // Sync real-time training state with server
+  useEffect(() => {
+    const isTraining = appState === 'RUNNING' || appState === 'COOLDOWN';
+    realtimePresence.setTrainingState(isTraining, bpm);
+  }, [appState, bpm]);
 
   // Format Total Time
   const formatTotalTime = (totalSecs: number) => {
@@ -128,6 +197,37 @@ export default function App() {
   };
 
   const timerRef = useRef<number | null>(null);
+
+  // Screen orientation & mobile portrait detection
+  const [isPortrait, setIsPortrait] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerHeight > window.innerWidth;
+  });
+  const [isMobileScreen, setIsMobileScreen] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 1024;
+  });
+  const [showPortraitChartsManual, setShowPortraitChartsManual] = useState<boolean>(false);
+
+  useEffect(() => {
+    const updateOrientation = () => {
+      const portrait = window.innerHeight > window.innerWidth;
+      const mobile = window.innerWidth < 1024;
+      setIsPortrait(portrait);
+      setIsMobileScreen(mobile);
+    };
+
+    updateOrientation();
+    window.addEventListener('resize', updateOrientation);
+    window.addEventListener('orientationchange', updateOrientation);
+
+    return () => {
+      window.removeEventListener('resize', updateOrientation);
+      window.removeEventListener('orientationchange', updateOrientation);
+    };
+  }, []);
+
+  const isMobilePortrait = isMobileScreen && isPortrait;
 
   const t = THEMES[theme];
 
@@ -159,19 +259,6 @@ export default function App() {
       setTimeout(() => setPulse(false), 140);
     };
   }, []);
-
-  useEffect(() => {
-    metronome.setMuted(muted);
-    try {
-      localStorage.setItem('rhythm_muted', String(muted));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [muted]);
-
-  useEffect(() => {
-    metronome.setSoundType(soundType);
-  }, [soundType]);
 
   // Preparation Step Guidance Data
   const PREP_STEPS: Record<number, { title: string; desc: string; tip: string; emoji: string; badgeColor: string }> = {
@@ -243,24 +330,27 @@ export default function App() {
 
   // Preparation Countdown Timer Engine (3 -> 2 -> 1 -> RUNNING)
   useEffect(() => {
-    if (appState === 'PREPARING') {
-      const interval = window.setInterval(() => {
-        setPrepCount((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            executeStartRunning(targetMode, autoCycles);
-            return 1;
-          }
+    if (appState !== 'PREPARING') return;
+
+    if (prepCount <= 0) {
+      executeStartRunning(targetMode, autoCycles);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setPrepCount((prev) => {
+        const next = prev - 1;
+        if (next > 0) {
           try {
             metronome.playSample(soundType);
           } catch {}
-          return prev - 1;
-        });
-      }, 1000);
+        }
+        return next;
+      });
+    }, 1000);
 
-      return () => clearInterval(interval);
-    }
-  }, [appState, targetMode, autoCycles, soundType, executeStartRunning]);
+    return () => window.clearTimeout(timer);
+  }, [appState, prepCount, targetMode, autoCycles, soundType, executeStartRunning]);
 
   // Start Progressive Mode (with 3s preparation)
   const startProgressiveMode = (cycles: number = autoCycles) => {
@@ -289,8 +379,8 @@ export default function App() {
         }
 
         timerRef.current = window.setInterval(() => {
-          // Increment total cumulative active training seconds
-          setUserStats(s => ({ ...s, totalSeconds: s.totalSeconds + 1 }));
+          // Increment total cumulative active training seconds & daily record
+          setUserStats(s => recordTrainingSeconds(s, 1));
 
           setTimeLeft((prev) => {
             if (prev <= 1) {
@@ -312,10 +402,22 @@ export default function App() {
         }, 1000);
       } else if (playMode === 'AUTO') {
         timerRef.current = window.setInterval(() => {
-          // Increment total cumulative active training seconds
-          setUserStats(s => ({ ...s, totalSeconds: s.totalSeconds + 1 }));
+          // Increment total cumulative active training seconds & daily record
+          setUserStats(s => recordTrainingSeconds(s, 1));
 
           setTimeLeft((prev) => {
+            const nextVal = prev - 1;
+
+            // Trigger Edge Warning sound during 120 BPM sprint stage's final 10 seconds (10 -> 1)
+            if (bpm === 120 && nextVal <= 10 && nextVal >= 1) {
+              try {
+                metronome.playEdgeWarning(nextVal);
+              } catch {}
+              if (nextVal === 10) {
+                setPhrase('⚡ 极致冲刺最后 10 秒！锁定边缘，感受巅峰涌动！');
+              }
+            }
+
             if (prev <= 1) {
               let nextBpm: BpmState | null = null;
               if (bpm === 30) nextBpm = 60;
@@ -331,7 +433,7 @@ export default function App() {
                 return STAGE_DURATIONS[nextBpm];
               } else {
                 // 120 BPM finished for current cycle - record completed cycle!
-                setUserStats(s => ({ ...s, totalCycles: s.totalCycles + 1 }));
+                setUserStats(s => recordCycle(s));
 
                 if (currentCycle < autoCycles) {
                   const nextCycleNum = currentCycle + 1;
@@ -344,7 +446,7 @@ export default function App() {
                   return STAGE_DURATIONS[30];
                 } else {
                   // All cycles completed!
-                  setUserStats(s => ({ ...s, completedSessions: s.completedSessions + 1 }));
+                  setUserStats(s => recordSession(s));
                   setAppState('CLIMAX');
                   setShowParticles(true);
                   return 0;
@@ -370,7 +472,7 @@ export default function App() {
 
       timerRef.current = window.setInterval(() => {
         // Increment total cumulative active training seconds even in cooldown
-        setUserStats(s => ({ ...s, totalSeconds: s.totalSeconds + 1 }));
+        setUserStats(s => recordTrainingSeconds(s, 1));
 
         setTimeLeft((prev) => {
           if (prev <= 1) {
@@ -443,25 +545,41 @@ export default function App() {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  // Dynamic physiological excitement backdrop blur scaling with BPM
+  const dynamicBackdropBlur = useMemo(() => {
+    if (appState === 'RUNNING') {
+      // 30 BPM -> 0px, 60 BPM -> 2.5px, 90 BPM -> 5.5px, 120 BPM -> 8.5px (+ extra 1.5px pulse resonance at peak)
+      const baseBlur = Math.max(0, ((bpm - 30) / 90) * 8.5);
+      const pulseBlur = pulse && bpm >= 90 ? 1.5 : 0;
+      return `${(baseBlur + pulseBlur).toFixed(1)}px`;
+    }
+    if (appState === 'COOLDOWN') {
+      return '2.0px';
+    }
+    return '0px';
+  }, [appState, bpm, pulse]);
+
   return (
     <div 
-      className={`min-h-[100dvh] w-full ${t.appBg} ${t.text} transition-colors duration-700 font-sans flex flex-col items-center justify-center p-0 md:p-6 relative overflow-x-hidden`}
+      className={`min-h-[100dvh] w-full ${t.appBg} ${t.text} transition-colors duration-700 font-sans flex flex-col items-center justify-center p-0 sm:p-3 md:p-6 lg:p-8 xl:p-10 relative overflow-x-hidden`}
     >
       
-      <div className={`flex flex-col justify-between w-full h-[100dvh] md:h-auto md:max-w-2xl md:min-h-[720px] ${t.cardBg} md:rounded-[2.5rem] md:shadow-2xl md:border ${t.border} relative overflow-hidden transition-all duration-700`}>
+      <div className={`flex flex-col justify-between w-full h-[100dvh] md:h-auto md:max-w-3xl lg:max-w-5xl xl:max-w-6xl md:min-h-[740px] lg:min-h-[780px] ${t.cardBg} md:rounded-[2.5rem] md:shadow-2xl md:border ${t.border} relative overflow-hidden transition-all duration-500`}>
 
         {/* Atmosphere Glow Overlay */}
         <div 
           className="absolute inset-0 pointer-events-none transition-all duration-500 ease-out z-0"
           style={{
-            backgroundColor: (appState === 'RUNNING' || appState === 'COOLDOWN') ? t.glow.replace('0.2', '0.12') : 'transparent',
-            opacity: (appState === 'RUNNING' || appState === 'COOLDOWN') ? (pulse || isPressing ? 1 : 0.35) : 0,
+            backgroundColor: (appState === 'RUNNING' || appState === 'COOLDOWN') ? (theme === 'midnight' ? 'rgba(217,70,239,0.04)' : t.glow.replace('0.2', '0.12')) : 'transparent',
+            opacity: (appState === 'RUNNING' || appState === 'COOLDOWN') 
+              ? (pulse || isPressing ? (theme === 'midnight' ? 0.45 : 1) : (theme === 'midnight' ? 0.15 : 0.35)) 
+              : 0,
           }}
         />
         
         {/* Top Progress Bar */}
         {(appState === 'RUNNING' || appState === 'COOLDOWN') && (
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-black/5 z-50 overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 md:h-2 bg-black/5 z-50 overflow-hidden">
             <div 
               className={`h-full ${appState === 'COOLDOWN' ? 'bg-blue-400' : t.progress} transition-all duration-1000 ease-linear rounded-r-full`}
               style={{ 
@@ -472,8 +590,8 @@ export default function App() {
         )}
 
         {/* Top Bar Header */}
-        <header className="px-6 py-4 md:px-8 md:py-6 flex justify-between items-center z-20 shrink-0">
-          <div className="flex items-center gap-3">
+        <header className="px-4 py-3.5 sm:px-6 sm:py-4 md:px-8 md:py-5 lg:px-10 lg:py-6 flex justify-between items-center z-20 shrink-0 gap-3 border-b border-black/[0.03]">
+          <div className="flex items-center gap-2.5 sm:gap-3">
             {appState !== 'IDLE' && (
               <button 
                 onClick={() => {
@@ -481,21 +599,29 @@ export default function App() {
                   metronome.stop(true, 0.4);
                   setShowParticles(false);
                 }}
-                className={`p-3 rounded-full ${t.buttonBg} ${t.buttonHover} transition-all duration-200 active:scale-95 shadow-sm`}
+                className={`p-2.5 md:p-3 rounded-full ${t.buttonBg} ${t.buttonHover} transition-all duration-200 active:scale-95 shadow-xs`}
                 title="返回主页"
               >
-                <Home className="w-5 h-5" />
+                <Home className="w-4 h-4 md:w-5 md:h-5" />
               </button>
             )}
-            <h1 className="text-xl md:text-2xl font-black tracking-wider flex items-center gap-2">
-              <Flame className={`w-6 h-6 ${t.accent}`} />
+            <h1 className="text-lg sm:text-xl md:text-2xl font-black tracking-wider flex items-center gap-2">
+              <Flame className={`w-5 h-5 md:w-6 md:h-6 ${t.accent}`} />
               <span>律动</span>
+              <span className="hidden sm:inline-block text-[11px] font-bold opacity-50 px-2 py-0.5 rounded-full bg-black/5">
+                EdgeControl
+              </span>
             </h1>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Real-time Clock & Live Online Count Badges in Header */}
+          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-2.5">
+            <LiveClockBadge variant="header" isDark={theme === 'midnight'} />
+            <OnlineUserBadge variant="header" />
+
             <button 
               onClick={() => setMuted(!muted)} 
-              className={`relative p-3 rounded-full transition-all duration-300 active:scale-95 shadow-sm ${
+              className={`relative p-2.5 md:p-3 rounded-full transition-all duration-300 active:scale-95 shadow-xs ${
                 muted 
                   ? 'bg-rose-500/20 text-rose-700 border border-rose-400/50 ring-2 ring-rose-400/60 shadow-[0_0_16px_rgba(244,63,94,0.4)] animate-pulse' 
                   : `${t.buttonBg} ${t.buttonHover}`
@@ -504,22 +630,22 @@ export default function App() {
             >
               {muted ? (
                 <div className="relative flex items-center justify-center">
-                  <VolumeX className="w-5 h-5 text-rose-600" />
+                  <VolumeX className="w-4 h-4 md:w-5 md:h-5 text-rose-600" />
                   <span className="absolute -top-1 -right-1 flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600"></span>
                   </span>
                 </div>
               ) : (
-                <Volume2 className="w-5 h-5" />
+                <Volume2 className="w-4 h-4 md:w-5 md:h-5" />
               )}
             </button>
             <button 
               onClick={() => setShowSettings(!showSettings)} 
-              className={`p-3 rounded-full ${t.buttonBg} ${t.buttonHover} transition-all duration-200 active:scale-95 shadow-sm`}
+              className={`p-2.5 md:p-3 rounded-full ${t.buttonBg} ${t.buttonHover} transition-all duration-200 active:scale-95 shadow-xs`}
               title="偏好设置"
             >
-              <Settings2 className="w-5 h-5" />
+              <Settings2 className="w-4 h-4 md:w-5 md:h-5" />
             </button>
           </div>
         </header>
@@ -576,7 +702,7 @@ export default function App() {
                           key={preset.id}
                           onClick={() => {
                             setSoundType(preset.id);
-                            metronome.playSample(preset.id);
+                            metronome.playSample(preset.id, true);
                           }}
                           className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                             isSelected 
@@ -608,26 +734,166 @@ export default function App() {
 
               {/* Theme Options */}
               {activeSettingsTab === 'theme' && (
-                <div className="space-y-2.5">
-                  <div className="text-xs font-bold opacity-50 px-1">选择治愈系马卡龙色彩：</div>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    {([
-                      ['peach', '蜜桃粉', 'bg-rose-100 border-rose-300 text-rose-800', '🌸'],
-                      ['mint', '薄荷绿', 'bg-teal-100 border-teal-300 text-teal-800', '🍃'],
-                      ['taro', '香芋紫', 'bg-purple-100 border-purple-300 text-purple-800', '🍇'],
-                      ['cheese', '芝士黄', 'bg-amber-100 border-amber-300 text-amber-800', '🧀']
-                    ] as const).map(([key, name, colorClass, emoji]) => (
+                <div className="space-y-3.5">
+                  {/* Follow System Theme Switch Banner */}
+                  <div className={`p-4 rounded-2xl border transition-all ${
+                    followSystemTheme
+                      ? (theme === 'midnight' ? 'bg-purple-950/60 border-purple-800/80 text-purple-200' : 'bg-rose-50/80 border-rose-200 text-slate-800')
+                      : 'bg-black/[0.03] border-black/5 text-slate-800'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${
+                          followSystemTheme 
+                            ? (theme === 'midnight' ? 'bg-purple-900 text-rose-300' : 'bg-rose-500/20 text-rose-700')
+                            : 'bg-black/5 text-slate-500'
+                        }`}>
+                          <Monitor className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-black tracking-wide">跟随系统设置</span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                              systemIsDark 
+                                ? 'bg-purple-900/60 text-purple-200 border-purple-700/50' 
+                                : 'bg-amber-100 text-amber-900 border-amber-300'
+                            }`}>
+                              {systemIsDark ? '🌙 系统当前: 深色' : '☀️ 系统当前: 浅色'}
+                            </span>
+                          </div>
+                          <p className="text-xs opacity-70 mt-0.5 leading-tight">
+                            {followSystemTheme 
+                              ? (systemIsDark 
+                                  ? '已自动匹配系统深色模式，呈现暗夜玫瑰私密界面' 
+                                  : `已自动匹配系统浅色模式，呈现所选浅色主题`)
+                              : '自动监听设备系统或浏览器的深浅色外观并智能同步'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Follow System Toggle Switch */}
                       <button
-                        key={key}
-                        onClick={() => setTheme(key)}
-                        className={`p-4 rounded-2xl border text-center flex flex-col items-center gap-1.5 transition-all duration-200 active:scale-95 ${colorClass} ${
-                          theme === key ? 'ring-2 ring-current shadow-md scale-[1.02]' : 'opacity-70 hover:opacity-100'
+                        onClick={() => {
+                          const nextFollow = !followSystemTheme;
+                          setFollowSystemTheme(nextFollow);
+                          if (nextFollow) {
+                            // Immediately apply based on system
+                            if (typeof window !== 'undefined' && window.matchMedia) {
+                              const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                              setTheme(isDark ? 'midnight' : favoriteLightTheme);
+                            }
+                          }
+                        }}
+                        className={`w-12 h-7 rounded-full p-1 transition-colors duration-300 relative shrink-0 focus:outline-hidden ${
+                          followSystemTheme ? (theme === 'midnight' ? 'bg-purple-600' : 'bg-rose-500') : 'bg-slate-300'
                         }`}
+                        title="开启/关闭跟随系统外观"
                       >
-                        <span className="text-2xl">{emoji}</span>
-                        <span className="text-sm font-black">{name}</span>
+                        <div className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform duration-300 ${
+                          followSystemTheme ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
                       </button>
-                    ))}
+                    </div>
+                  </div>
+
+                  {/* Night Mode Quick Switch Banner */}
+                  <div className={`p-3.5 sm:p-4 rounded-2xl border transition-all ${
+                    theme === 'midnight' 
+                      ? 'bg-purple-950/40 border-purple-800/60 text-purple-200' 
+                      : 'bg-black/[0.03] border-black/5 text-slate-800'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${
+                          theme === 'midnight' ? 'bg-purple-900/60 text-rose-300' : 'bg-slate-900 text-amber-300'
+                        }`}>
+                          {theme === 'midnight' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs sm:text-sm font-black tracking-wide">夜间私密外观</span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              theme === 'midnight' ? 'bg-purple-900/50 text-rose-300' : 'bg-black/5 text-slate-600'
+                            }`}>
+                              {theme === 'midnight' ? '🌙 已开启' : '已关闭'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] sm:text-xs opacity-65 mt-0.5">
+                            深邃深紫/暗黑玫瑰调，暗光环境下保护视力并自动调暗光晕
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Custom Toggle Switch */}
+                      <button
+                        onClick={() => {
+                          if (theme === 'midnight') {
+                            setTheme(favoriteLightTheme);
+                            // If followSystemTheme is enabled but user explicitly turns off dark mode while system is dark, disable follow system
+                            if (followSystemTheme && systemIsDark) {
+                              setFollowSystemTheme(false);
+                            }
+                          } else {
+                            setTheme('midnight');
+                            // If followSystemTheme is enabled but user explicitly turns on dark mode while system is light, disable follow system
+                            if (followSystemTheme && !systemIsDark) {
+                              setFollowSystemTheme(false);
+                            }
+                          }
+                        }}
+                        className={`w-12 h-7 rounded-full p-1 transition-colors duration-300 relative shrink-0 focus:outline-hidden ${
+                          theme === 'midnight' ? 'bg-rose-500' : 'bg-slate-300'
+                        }`}
+                        title="切换夜间私密模式"
+                      >
+                        <div className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform duration-300 ${
+                          theme === 'midnight' ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-bold opacity-50 px-1 mb-2 flex items-center justify-between">
+                      <span>自选配色风格：</span>
+                      {followSystemTheme && (
+                        <span className="text-[10px] font-bold text-rose-500">
+                          {theme === 'midnight' ? '夜间生效中' : '浅色生效中'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                      {([
+                        ['peach', '蜜桃粉', 'bg-rose-100 border-rose-300 text-rose-800', '🌸'],
+                        ['mint', '薄荷绿', 'bg-teal-100 border-teal-300 text-teal-800', '🍃'],
+                        ['taro', '香芋紫', 'bg-purple-100 border-purple-300 text-purple-800', '🍇'],
+                        ['cheese', '芝士黄', 'bg-amber-100 border-amber-300 text-amber-800', '🧀'],
+                        ['midnight', '暗夜玫瑰', 'bg-[#151026] border-purple-800/80 text-rose-200', '🌙']
+                      ] as const).map(([key, name, colorClass, emoji]) => (
+                        <button
+                          key={key}
+                          onClick={() => {
+                            setTheme(key);
+                            if (key !== 'midnight') {
+                              setFavoriteLightTheme(key);
+                              if (followSystemTheme && systemIsDark) {
+                                setFollowSystemTheme(false);
+                              }
+                            } else {
+                              if (followSystemTheme && !systemIsDark) {
+                                setFollowSystemTheme(false);
+                              }
+                            }
+                          }}
+                          className={`p-3.5 rounded-2xl border text-center flex flex-col items-center gap-1.5 transition-all duration-200 active:scale-95 ${colorClass} ${
+                            theme === key ? 'ring-2 ring-current shadow-md scale-[1.02]' : 'opacity-70 hover:opacity-100'
+                          }`}
+                        >
+                          <span className="text-2xl">{emoji}</span>
+                          <span className="text-xs sm:text-sm font-black">{name}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
@@ -644,7 +910,11 @@ export default function App() {
 
         {/* Main Stage Area */}
         <main 
-          className="flex-1 flex flex-col items-center justify-center relative w-full px-5 py-4 cursor-pointer touch-manipulation z-10 min-h-0"
+          className="flex-1 flex flex-col items-center justify-center relative w-full px-4 sm:px-6 md:px-8 lg:px-10 py-4 sm:py-6 cursor-pointer touch-manipulation z-10 min-h-0 transition-[backdrop-filter] duration-700 ease-out"
+          style={{
+            backdropFilter: `blur(${dynamicBackdropBlur})`,
+            WebkitBackdropFilter: `blur(${dynamicBackdropBlur})`,
+          }}
           onMouseDown={() => { setIsPressing(true); handleInteraction(); }}
           onMouseUp={() => setIsPressing(false)}
           onMouseLeave={() => setIsPressing(false)}
@@ -696,7 +966,7 @@ export default function App() {
             
             {appState === 'IDLE' && (
               <div 
-                className="absolute w-72 h-72 md:w-96 md:h-96 rounded-full border-4 border-blue-400/30"
+                className="absolute w-72 h-72 md:w-96 md:h-96 lg:w-[32rem] lg:h-[32rem] rounded-full border-4 border-blue-400/20"
                 style={{
                   animation: 'breathe-circle 5s ease-in-out infinite'
                 }}
@@ -707,14 +977,14 @@ export default function App() {
               <>
                 {/* Outer Rotating Dotted Ring */}
                 <div 
-                  className="absolute w-72 h-72 md:w-96 md:h-96 rounded-full border-2 border-dashed border-rose-400/35 pointer-events-none"
+                  className="absolute w-72 h-72 md:w-96 md:h-96 lg:w-[28rem] lg:h-[28rem] rounded-full border-2 border-dashed border-rose-400/35 pointer-events-none"
                   style={{
                     animation: 'prep-ring-spin 20s linear infinite'
                   }}
                 />
                 {/* Core Soft Ambient Pulse Ring */}
                 <div 
-                  className="absolute w-60 h-60 md:w-80 md:h-80 rounded-full bg-gradient-to-tr from-rose-400/20 via-amber-300/20 to-indigo-300/20 pointer-events-none blur-sm"
+                  className="absolute w-60 h-60 md:w-80 md:h-80 lg:w-96 lg:h-96 rounded-full bg-gradient-to-tr from-rose-400/20 via-amber-300/20 to-indigo-300/20 pointer-events-none blur-sm"
                   style={{
                     animation: 'prep-glow-pulse 2s ease-in-out infinite'
                   }}
@@ -726,7 +996,7 @@ export default function App() {
               <>
                 {/* Outer Calming Halo */}
                 <div 
-                  className="absolute w-72 h-72 md:w-[26rem] md:h-[26rem] rounded-full border-2 border-cyan-400/40 bg-cyan-300/10 pointer-events-none"
+                  className="absolute w-72 h-72 md:w-[26rem] md:h-[26rem] lg:w-[32rem] lg:h-[32rem] rounded-full border-2 border-cyan-400/40 bg-cyan-300/10 pointer-events-none"
                   style={{
                     animation: 'cooldown-halo 6s cubic-bezier(0.4, 0, 0.2, 1) infinite',
                     filter: 'blur(1px)'
@@ -734,7 +1004,7 @@ export default function App() {
                 />
                 {/* Core Calming Breath Ring */}
                 <div 
-                  className="absolute w-64 h-64 md:w-80 md:h-80 rounded-full border-[3px] border-blue-400/50 bg-blue-400/15 pointer-events-none shadow-[0_0_50px_rgba(56,189,248,0.25)]"
+                  className="absolute w-64 h-64 md:w-80 md:h-80 lg:w-96 lg:h-96 rounded-full border-[3px] border-blue-400/50 bg-blue-400/15 pointer-events-none shadow-[0_0_50px_rgba(56,189,248,0.25)]"
                   style={{
                     animation: 'cooldown-breathe 6s cubic-bezier(0.4, 0, 0.2, 1) infinite'
                   }}
@@ -745,7 +1015,7 @@ export default function App() {
             {appState === 'RUNNING' && (
               <>
                 <div 
-                  className={`w-64 h-64 md:w-80 md:h-80 rounded-full border transition-all duration-300 ease-out ${t.border}`}
+                  className={`w-64 h-64 md:w-80 md:h-80 lg:w-[26rem] lg:h-[26rem] rounded-full border transition-all duration-300 ease-out ${t.border}`}
                   style={{
                     transform: pulse ? 'scale(1.08)' : (isPressing ? 'scale(0.96)' : 'scale(1)'),
                     opacity: pulse ? 0.9 : (isPressing ? 0.6 : 0.25),
@@ -753,7 +1023,7 @@ export default function App() {
                   }}
                 />
                 <div 
-                  className={`absolute w-64 h-64 md:w-80 md:h-80 rounded-full border-[1px] transition-all duration-500 ease-out ${t.border}`}
+                  className={`absolute w-64 h-64 md:w-80 md:h-80 lg:w-[26rem] lg:h-[26rem] rounded-full border-[1px] transition-all duration-500 ease-out ${t.border}`}
                   style={{
                     transform: pulse ? 'scale(1.22)' : (isPressing ? 'scale(0.92)' : 'scale(1)'),
                     opacity: pulse ? 0 : (isPressing ? 0.7 : 0)
@@ -763,7 +1033,7 @@ export default function App() {
             )}
           </div>
 
-          <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-lg pointer-events-none">
+          <div className={`relative z-10 flex flex-col items-center justify-center w-full ${appState === 'IDLE' ? 'max-w-full' : 'max-w-2xl'} pointer-events-none transition-all duration-500`}>
             
             {!audioEnabled && (
               <div className={`mb-3 inline-flex items-center gap-2 px-5 py-2 rounded-full text-xs font-black tracking-widest ${t.buttonBg} shadow-sm animate-bounce pointer-events-auto`}>
@@ -772,187 +1042,326 @@ export default function App() {
               </div>
             )}
 
-            {/* IDLE State - Progressive Mode & Random Mode */}
+            {/* IDLE State - Responsive 2-Column Desktop Grid / Single Column Mobile Layout */}
             {appState === 'IDLE' && (
-              <div className="space-y-4 w-full flex flex-col items-center pointer-events-auto">
-                <div className="space-y-1 text-center">
-                  <h2 className="text-2xl md:text-3xl font-black tracking-widest">律动训练</h2>
-                  <p className="text-xs font-bold opacity-60 tracking-wider">科学阶梯节奏递进 · 突破持久耐力</p>
-                </div>
-
-                {/* Historical Cumulative Stats & Achievement Card */}
-                <div className="w-full p-4 rounded-3xl bg-gradient-to-br from-amber-500/10 via-rose-500/10 to-indigo-500/10 border border-black/5 shadow-xs backdrop-blur-md flex flex-col gap-2.5 text-left">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-700 flex items-center justify-center shadow-xs">
-                        <Trophy className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-black tracking-wider">历史成就档案</span>
-                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-900 border border-amber-500/30">
-                            {getAchievementLevel(userStats.totalCycles, userStats.totalSeconds).level}
-                          </span>
-                        </div>
-                        <div className="text-[10px] font-bold text-amber-900/80">
-                          {getAchievementLevel(userStats.totalCycles, userStats.totalSeconds).title} · {getAchievementLevel(userStats.totalCycles, userStats.totalSeconds).desc}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 2-Metric Grid */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="p-3 rounded-2xl bg-white/80 border border-black/5 flex items-center gap-2.5 shadow-xs">
-                      <div className="w-9 h-9 rounded-xl bg-rose-500/10 text-rose-600 flex items-center justify-center shrink-0">
-                        <Clock className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-[10px] font-bold opacity-60">累积训练时长</div>
-                        <div className="text-sm font-black text-rose-700 tabular-nums truncate">
-                          {formatTotalTime(userStats.totalSeconds)}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-3 rounded-2xl bg-white/80 border border-black/5 flex items-center gap-2.5 shadow-xs">
-                      <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0">
-                        <RotateCcw className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-[10px] font-bold opacity-60">完成循环总数</div>
-                        <div className="text-sm font-black text-purple-700 tabular-nums">
-                          {userStats.totalCycles} <span className="text-xs font-bold opacity-75">轮</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Main Progressive Mode Card with Cycle Count Selector */}
-                <div className={`w-full p-4 md:p-5 rounded-3xl border ${t.buttonBg} shadow-sm flex flex-col gap-3.5 text-left`}>
+              <div className="w-full pointer-events-auto">
+                <div className="lg:grid lg:grid-cols-12 lg:gap-8 xl:gap-10 lg:items-start text-left w-full">
                   
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-10 h-10 rounded-2xl bg-black/5 flex items-center justify-center">
-                        <TrendingUp className={`w-5 h-5 ${t.accent}`} />
+                  {/* Left Column: Command & Mode Configuration (7 cols on lg) */}
+                  <div className="lg:col-span-7 flex flex-col gap-4 md:gap-5">
+                    
+                    {/* Header & Subtitle */}
+                    <div className="space-y-1 text-center lg:text-left">
+                      <div className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1 rounded-full bg-rose-500/10 text-rose-500 mb-1">
+                        <Zap className="w-3.5 h-3.5" />
+                        <span>科学阶梯节奏递进 · 突破持久耐力</span>
                       </div>
-                      <div>
-                        <h3 className="text-base font-black tracking-wider flex items-center gap-2">
-                          循序渐进模式
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600">
-                            4 阶段递进
-                          </span>
-                        </h3>
-                        <p className="text-xs opacity-60 mt-0.5">30 → 60 → 90 → 120 BPM 自动升级，单轮 10 分钟</p>
-                      </div>
+                      <h2 className={`text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight ${theme === 'midnight' ? 'text-rose-100' : 'text-slate-900'}`}>
+                        律动控精训练
+                      </h2>
+                      <p className="text-xs sm:text-sm font-medium opacity-70 leading-relaxed">
+                        通过精准 Web Audio 节拍器与渐进式脱敏循环，训练盆底神经抗刺激耐受度与身心掌控力。
+                      </p>
                     </div>
-                  </div>
 
-                  {/* Cycle Counter Selector & Recommendation */}
-                  <div className="p-3 bg-black/[0.03] rounded-2xl space-y-2.5 border border-black/5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-xs font-black">
-                        <Target className="w-4 h-4 opacity-70" />
-                        <span>训练循环次数：</span>
-                      </div>
+                    {/* Real-time Clock & Anti-addiction Contextual Banner */}
+                    <LiveClockBadge variant="banner" isDark={theme === 'midnight'} />
+
+                    {/* Main Progressive Mode Card with Cycle Count Selector */}
+                    <div className={`w-full p-5 sm:p-6 md:p-7 rounded-[2rem] border ${
+                      theme === 'midnight' 
+                        ? 'bg-[#151026] border-purple-900/60 text-rose-100 shadow-[0_10px_30px_rgba(0,0,0,0.5)]' 
+                        : `${t.buttonBg} shadow-sm`
+                    } flex flex-col gap-4 text-left transition-all hover:shadow-md`}>
                       
-                      {/* Recommendation Badge */}
-                      <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-800 text-[11px] font-black border border-amber-500/20">
-                        <Award className="w-3.5 h-3.5 text-amber-600" />
-                        <span>推荐 2~3 轮 (20~30分钟)</span>
-                      </div>
-                    </div>
-
-                    {/* Cycle Pills */}
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {([1, 2, 3, 4] as number[]).map((cycleNum) => {
-                        const isSelected = autoCycles === cycleNum;
-                        const isRecommended = cycleNum === 2 || cycleNum === 3;
-                        return (
-                          <button
-                            key={cycleNum}
-                            onClick={() => setAutoCycles(cycleNum)}
-                            className={`py-2 px-1 rounded-xl text-center transition-all duration-200 flex flex-col items-center justify-center relative ${
-                              isSelected
-                                ? 'bg-black/80 text-white font-black shadow-sm scale-[1.02]'
-                                : 'bg-white/80 hover:bg-white text-current font-bold border border-black/5 opacity-80'
-                            }`}
-                          >
-                            <span className="text-xs font-black">{cycleNum} 轮</span>
-                            <span className="text-[9px] opacity-70 mt-0.5">{cycleNum * 10} 分钟</span>
-                            {isRecommended && !isSelected && (
-                              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* "Why is this recommended?" Accordion */}
-                    <div className="pt-1">
-                      <button
-                        onClick={() => setShowCycleWhy(!showCycleWhy)}
-                        className="w-full flex items-center justify-between text-[11px] font-bold opacity-75 hover:opacity-100 transition-opacity py-1 px-0.5"
-                      >
-                        <span className="flex items-center gap-1 text-rose-700">
-                          <HelpCircle className="w-3.5 h-3.5" />
-                          为什么科学推荐循环 2~3 轮？
-                        </span>
-                        {showCycleWhy ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                      </button>
-
-                      {showCycleWhy && (
-                        <div className="mt-2 p-3 rounded-xl bg-white/90 border border-black/5 text-[11px] leading-relaxed space-y-1.5 animate-fadeIn">
-                          <div className="flex gap-1.5">
-                            <span className="font-black text-rose-600 shrink-0">第 1 轮：</span>
-                            <span className="opacity-80"><strong>唤醒与神经脱敏</strong> · 从 30 BPM 慢速渐入 120 冲刺，让敏感神经适应刺激节奏，建立第一道耐受防线。</span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-11 h-11 rounded-2xl ${
+                            theme === 'midnight' ? 'bg-purple-900/40 text-rose-400' : 'bg-black/5'
+                          } flex items-center justify-center shrink-0`}>
+                            <TrendingUp className={`w-6 h-6 ${theme === 'midnight' ? 'text-rose-400' : t.accent}`} />
                           </div>
-                          <div className="flex gap-1.5">
-                            <span className="font-black text-amber-600 shrink-0">第 2 轮：</span>
-                            <span className="opacity-80"><strong>强化控精与边缘掌控（核心）</strong> · 在高度兴奋阈值下骤然回到 30 BPM 急刹车，极度强化边缘控精（Edging）耐力。</span>
-                          </div>
-                          <div className="flex gap-1.5">
-                            <span className="font-black text-teal-600 shrink-0">第 3 轮：</span>
-                            <span className="opacity-80"><strong>突破生理持久上限</strong> · 重塑射精反射弧与神经阻断，达成身心自如的长效持久掌控。</span>
-                          </div>
-                          <div className="pt-1 border-t border-black/5 text-[10px] text-black/60 italic">
-                            💡 科学提示：单轮刺激未达深度脱敏；超过 4 轮肌肉易疲劳引发代偿，2~3 轮为黄金耐力区间。
+                          <div>
+                            <h3 className="text-base sm:text-lg font-black tracking-wider flex items-center gap-2">
+                              循序渐进模式
+                              <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
+                                theme === 'midnight' 
+                                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' 
+                                  : 'bg-rose-500/15 text-rose-700 border border-rose-500/20'
+                              }`}>
+                                4 阶段递进
+                              </span>
+                            </h3>
+                            <p className={`text-xs ${theme === 'midnight' ? 'text-purple-300/70' : 'opacity-65'} mt-0.5`}>
+                              30 → 60 → 90 → 120 BPM 自动升级，单轮 10 分钟
+                            </p>
                           </div>
                         </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Start Progressive Button */}
-                  <button
-                    onClick={() => startProgressiveMode(autoCycles)}
-                    className={`w-full py-3.5 rounded-2xl font-black text-xs md:text-sm tracking-widest flex items-center justify-center gap-2 bg-rose-600 text-white hover:bg-rose-700 transition-all shadow-md active:scale-98`}
-                  >
-                    <Play className="w-4 h-4 fill-white" />
-                    开启渐进模式（共 {autoCycles} 轮 · {autoCycles * 10} 分钟）
-                  </button>
-                </div>
-
-                {/* Secondary Random Mode Card */}
-                <button 
-                  onClick={startRandomMode}
-                  className={`w-full p-4 rounded-3xl text-left border ${t.buttonBg} ${t.buttonHover} transition-all duration-200 active:scale-[0.98] shadow-sm flex items-center justify-between group`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-black/5 flex items-center justify-center">
-                      <Shuffle className={`w-5 h-5 ${t.accent}`} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm md:text-base font-black tracking-wider">随机盲盒模式</h4>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/5 opacity-70">未知刺激</span>
                       </div>
-                      <p className="text-xs opacity-60 mt-0.5">节奏与时长完全随机变换，打破预设立场</p>
+
+                      {/* Cycle Counter Selector & Recommendation */}
+                      <div className={`p-3.5 rounded-2xl space-y-3 border ${
+                        theme === 'midnight' 
+                          ? 'bg-[#1e1738] border-purple-800/40' 
+                          : 'bg-black/[0.03] border-black/5'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-xs font-black">
+                            <Target className="w-4 h-4 opacity-70" />
+                            <span>训练循环次数：</span>
+                          </div>
+                          
+                          {/* Recommendation Badge */}
+                          <div className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black border ${
+                            theme === 'midnight' 
+                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' 
+                              : 'bg-amber-500/15 text-amber-800 border border-amber-500/20'
+                          }`}>
+                            <Award className={`w-3.5 h-3.5 ${theme === 'midnight' ? 'text-amber-400' : 'text-amber-600'}`} />
+                            <span>推荐 2~3 轮 (20~30分钟)</span>
+                          </div>
+                        </div>
+
+                        {/* Cycle Pills */}
+                        <div className="grid grid-cols-4 gap-2">
+                          {([1, 2, 3, 4] as number[]).map((cycleNum) => {
+                            const isSelected = autoCycles === cycleNum;
+                            const isRecommended = cycleNum === 2 || cycleNum === 3;
+                            
+                            let pillClass = '';
+                            if (theme === 'midnight') {
+                              if (isSelected) {
+                                pillClass = 'bg-gradient-to-br from-rose-500 to-purple-600 text-white font-black shadow-lg shadow-rose-950/60 ring-2 ring-rose-400 scale-[1.03]';
+                              } else {
+                                pillClass = 'bg-[#291f4d] hover:bg-[#342761] text-purple-200 hover:text-white font-bold border border-purple-700/50 hover:border-purple-500/80';
+                              }
+                            } else {
+                              if (isSelected) {
+                                pillClass = 'bg-slate-900 text-white font-black shadow-md scale-[1.03]';
+                              } else {
+                                pillClass = 'bg-white hover:bg-slate-50 text-slate-800 font-bold border border-black/10 shadow-2xs opacity-90 hover:opacity-100';
+                              }
+                            }
+
+                            return (
+                              <button
+                                key={cycleNum}
+                                onClick={() => setAutoCycles(cycleNum)}
+                                className={`py-2.5 px-1.5 rounded-xl text-center transition-all duration-200 flex flex-col items-center justify-center relative ${pillClass}`}
+                              >
+                                <span className="text-xs sm:text-sm font-black">{cycleNum} 轮</span>
+                                <span className={`text-[10px] ${isSelected ? 'text-white/85' : (theme === 'midnight' ? 'text-purple-300/80' : 'text-slate-500')} mt-0.5`}>
+                                  {cycleNum * 10} 分钟
+                                </span>
+                                {isRecommended && !isSelected && (
+                                  <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500 ${
+                                    theme === 'midnight' ? 'ring-2 ring-[#291f4d]' : 'ring-2 ring-white'
+                                  } animate-pulse`} />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* "Why is this recommended?" Accordion */}
+                        <div className="pt-1">
+                          <button
+                            onClick={() => setShowCycleWhy(!showCycleWhy)}
+                            className="w-full flex items-center justify-between text-[11px] sm:text-xs font-bold opacity-75 hover:opacity-100 transition-opacity py-1 px-0.5"
+                          >
+                            <span className={`flex items-center gap-1 ${theme === 'midnight' ? 'text-rose-400' : 'text-rose-700'}`}>
+                              <HelpCircle className="w-3.5 h-3.5" />
+                              为什么科学推荐循环 2~3 轮？
+                            </span>
+                            {showCycleWhy ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                          </button>
+
+                          {showCycleWhy && (
+                            <div className={`mt-2 p-3.5 rounded-xl border text-xs leading-relaxed space-y-2 animate-fadeIn ${
+                              theme === 'midnight'
+                                ? 'bg-[#18122c] border-purple-800/50 text-purple-200'
+                                : 'bg-white/90 border-black/5 text-slate-800'
+                            }`}>
+                              <div className="flex gap-2">
+                                <span className={`font-black ${theme === 'midnight' ? 'text-rose-400' : 'text-rose-600'} shrink-0`}>第 1 轮：</span>
+                                <span className="opacity-90"><strong>唤醒与神经脱敏</strong> · 从 30 BPM 慢速渐入 120 冲刺，让敏感神经适应刺激节奏，建立第一道耐受防线。</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <span className={`font-black ${theme === 'midnight' ? 'text-amber-400' : 'text-amber-600'} shrink-0`}>第 2 轮：</span>
+                                <span className="opacity-90"><strong>强化控精与边缘掌控（核心）</strong> · 在高度兴奋阈值下骤然回到 30 BPM 急刹车，极度强化边缘控精（Edging）耐力。</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <span className={`font-black ${theme === 'midnight' ? 'text-teal-400' : 'text-teal-600'} shrink-0`}>第 3 轮：</span>
+                                <span className="opacity-90"><strong>突破生理持久上限</strong> · 重塑射精反射弧与神经阻断，达成身心自如的长效持久掌控。</span>
+                              </div>
+                              <div className={`pt-1 border-t ${theme === 'midnight' ? 'border-purple-800/40 text-purple-300/60' : 'border-black/5 text-black/60'} text-[11px] italic`}>
+                                💡 科学提示：单轮刺激未达深度脱敏；超过 4 轮肌肉易疲劳引发代偿，2~3 轮为黄金耐力区间。
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Start Progressive Button */}
+                      <button
+                        onClick={() => startProgressiveMode(autoCycles)}
+                        className={`w-full py-4 rounded-2xl font-black text-sm md:text-base tracking-widest flex items-center justify-center gap-2 ${
+                          theme === 'midnight'
+                            ? 'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-lg shadow-rose-950/60'
+                            : 'bg-rose-600 hover:bg-rose-700 shadow-md'
+                        } text-white transition-all active:scale-98`}
+                      >
+                        <Play className="w-5 h-5 fill-white" />
+                        开启渐进模式（共 {autoCycles} 轮 · {autoCycles * 10} 分钟）
+                      </button>
                     </div>
+
+                    {/* Secondary Random Mode Card */}
+                    <button 
+                      onClick={startRandomMode}
+                      className={`w-full p-4 sm:p-5 rounded-[2rem] text-left border ${
+                        theme === 'midnight'
+                          ? 'bg-[#1e1738] border-purple-800/50 text-rose-100 hover:bg-[#271e47]'
+                          : `${t.buttonBg} ${t.buttonHover}`
+                      } transition-all duration-200 active:scale-[0.98] shadow-xs flex items-center justify-between group`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-2xl ${
+                          theme === 'midnight' ? 'bg-purple-900/40 text-rose-400' : 'bg-black/5'
+                        } flex items-center justify-center shrink-0`}>
+                          <Shuffle className={`w-5 h-5 ${theme === 'midnight' ? 'text-rose-400' : t.accent}`} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm sm:text-base font-black tracking-wider">随机盲盒模式</h4>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              theme === 'midnight' ? 'bg-purple-900/50 text-purple-300' : 'bg-black/5 opacity-70'
+                            }`}>未知刺激</span>
+                          </div>
+                          <p className={`text-xs ${theme === 'midnight' ? 'text-purple-300/70' : 'opacity-60'} mt-0.5`}>节奏与时长完全随机变换，打破预设立场</p>
+                        </div>
+                      </div>
+                      <Play className="w-4 h-4 opacity-40 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    </button>
+
                   </div>
-                  <Play className="w-4 h-4 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
-                </button>
+
+                  {/* Right Column: Telemetry, Community, History & Tips (5 cols on lg) */}
+                  <div className="lg:col-span-5 flex flex-col gap-4 md:gap-5 mt-5 lg:mt-0">
+                    
+                    {/* Live Online Community Interactive Card */}
+                    <OnlineUserBadge variant="card" />
+
+                    {/* Mobile Portrait Optimization Notice & Collapsible Toggle */}
+                    {isMobilePortrait && (
+                      <div className="w-full p-3 rounded-2xl bg-black/[0.03] border border-black/5 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 text-slate-700 font-bold">
+                          <Smartphone className="w-4 h-4 text-rose-500 shrink-0" />
+                          <span>竖屏模式：已优化布局释放操作视窗</span>
+                        </div>
+                        <button
+                          onClick={() => setShowPortraitChartsManual(!showPortraitChartsManual)}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white text-slate-900 font-black shadow-xs border border-black/5 text-[11px] active:scale-95 transition-all"
+                        >
+                          {showPortraitChartsManual ? (
+                            <>
+                              <EyeOff className="w-3.5 h-3.5" />
+                              <span>收起图表</span>
+                            </>
+                          ) : (
+                            <>
+                              <BarChart3 className="w-3.5 h-3.5 text-rose-600" />
+                              <span>展开图表</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Historical Cumulative Stats & Achievement Card (Simplified in Portrait unless expanded, full in Landscape/Desktop) */}
+                    {(!isMobilePortrait || showPortraitChartsManual) && (
+                      <div className={`w-full p-4 sm:p-5 rounded-3xl ${
+                        theme === 'midnight' 
+                          ? 'bg-[#1c1533] border-purple-800/40 text-rose-100' 
+                          : 'bg-gradient-to-br from-amber-500/10 via-rose-500/10 to-indigo-500/10 border-black/5'
+                      } border shadow-xs backdrop-blur-md flex flex-col gap-3 text-left animate-fadeIn`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center shadow-xs">
+                              <Trophy className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-black tracking-wider">历史成就档案</span>
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                  theme === 'midnight' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-amber-500/20 text-amber-900 border-amber-500/30'
+                                } border`}>
+                                  {getAchievementLevel(userStats.totalCycles, userStats.totalSeconds).level}
+                                </span>
+                              </div>
+                              <div className={`text-[10px] sm:text-[11px] font-bold ${
+                                theme === 'midnight' ? 'text-amber-200/80' : 'text-amber-900/80'
+                              }`}>
+                                {getAchievementLevel(userStats.totalCycles, userStats.totalSeconds).title} · {getAchievementLevel(userStats.totalCycles, userStats.totalSeconds).desc}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 2-Metric Grid */}
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <div className={`p-3 sm:p-3.5 rounded-2xl ${
+                            theme === 'midnight' ? 'bg-[#251d42] border-purple-800/40' : 'bg-white/85 border-black/5'
+                          } border flex items-center gap-2.5 shadow-xs`}>
+                            <div className="w-9 h-9 rounded-xl bg-rose-500/15 text-rose-400 flex items-center justify-center shrink-0">
+                              <Clock className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-[10px] font-bold opacity-60">累积训练时长</div>
+                              <div className={`text-sm sm:text-base font-black ${theme === 'midnight' ? 'text-rose-300' : 'text-rose-700'} tabular-nums truncate`}>
+                                {formatTotalTime(userStats.totalSeconds)}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className={`p-3 sm:p-3.5 rounded-2xl ${
+                            theme === 'midnight' ? 'bg-[#251d42] border-purple-800/40' : 'bg-white/85 border-black/5'
+                          } border flex items-center gap-2.5 shadow-xs`}>
+                            <div className="w-9 h-9 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center shrink-0">
+                              <RotateCcw className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-[10px] font-bold opacity-60">完成循环总数</div>
+                              <div className={`text-sm sm:text-base font-black ${theme === 'midnight' ? 'text-purple-300' : 'text-purple-700'} tabular-nums`}>
+                                {userStats.totalCycles} <span className="text-xs font-bold opacity-75">轮</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Weekly 7-Day Training Frequency Heatmap Visualizer (Hidden in Mobile Portrait, Full in Landscape / Desktop) */}
+                    {(!isMobilePortrait || showPortraitChartsManual) && (
+                      <div className="animate-fadeIn">
+                        <WeeklyActivityChart userStats={userStats} isDark={theme === 'midnight'} />
+                      </div>
+                    )}
+
+                    {/* Desktop / Landscape Mindful Advice Pill Card */}
+                    <div className={`hidden lg:flex p-4 rounded-2xl ${
+                      theme === 'midnight' ? 'bg-[#1c1533] border-purple-800/40 text-purple-200/80' : 'bg-white/60 border-black/5 text-slate-600'
+                    } border backdrop-blur-xs items-start gap-3 text-xs leading-relaxed`}>
+                      <Heart className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className={theme === 'midnight' ? 'text-rose-200' : 'text-slate-800'}>身心律动小贴士：</strong>
+                        训练过程中请保持腹式深呼吸，肩膀与盆底肌肉放松，在冲刺阶梯时感受神经边缘张力，勿急于释放。
+                      </div>
+                    </div>
+
+                  </div>
+
+                </div>
               </div>
             )}
 
@@ -960,9 +1369,15 @@ export default function App() {
             {appState === 'PREPARING' && (
               <div 
                 key={prepCount} 
-                className="space-y-5 w-full flex flex-col items-center pointer-events-auto max-w-sm mx-auto text-center px-2 py-4"
+                className="space-y-4 w-full flex flex-col items-center pointer-events-auto max-w-sm mx-auto text-center px-2 py-3"
                 style={{ animation: 'prep-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
               >
+                {/* Live Real-time Clock & Online Count for Mindful Preparation */}
+                <div className="flex items-center gap-2 flex-wrap justify-center">
+                  <LiveClockBadge variant="hud" isDark={theme === 'midnight'} />
+                  <OnlineUserBadge variant="hud" />
+                </div>
+
                 {/* Step Badge */}
                 <div className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border shadow-xs text-xs font-black backdrop-blur-md ${PREP_STEPS[prepCount]?.badgeColor || 'bg-white/80'}`}>
                   <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-spin" />
@@ -970,7 +1385,7 @@ export default function App() {
                 </div>
 
                 {/* Big Cute Countdown Capsule & Floating Emoji */}
-                <div className="relative flex items-center justify-center py-2">
+                <div className="relative flex items-center justify-center py-1">
                   <div className="w-36 h-36 md:w-40 md:h-40 rounded-[2.5rem] bg-white/85 shadow-xl border border-white/60 backdrop-blur-md flex flex-col items-center justify-center relative">
                     <div 
                       className="text-4xl md:text-5xl mb-0.5 select-none"
@@ -1015,7 +1430,7 @@ export default function App() {
                 </div>
 
                 {/* Skip Countdown Button */}
-                <div className="pt-2">
+                <div className="pt-1">
                   <button
                     onClick={() => executeStartRunning(targetMode, autoCycles)}
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/70 hover:bg-white text-xs font-bold opacity-75 hover:opacity-100 transition-all border border-black/5 active:scale-95 shadow-xs"
@@ -1029,7 +1444,7 @@ export default function App() {
 
             {/* Climax State */}
             {appState === 'CLIMAX' && (
-              <div className="space-y-5 text-center flex flex-col items-center pointer-events-auto py-8">
+              <div className="space-y-5 text-center flex flex-col items-center pointer-events-auto py-8 w-full max-w-sm">
                 <div className="w-16 h-16 rounded-full bg-amber-400/20 flex items-center justify-center text-3xl">
                   🏆
                 </div>
@@ -1039,6 +1454,10 @@ export default function App() {
                     太棒了！已顺利完成全部 {autoCycles} 轮渐进律动训练
                   </p>
                 </div>
+
+                {/* Real-time Clock & Reminder Banner on Completion */}
+                <LiveClockBadge variant="banner" />
+
                 <button 
                   onClick={(e) => { e.stopPropagation(); setAppState('IDLE'); setTimeLeft(0); setBpm(30); }}
                   className={`mt-3 p-5 rounded-full ${t.buttonBg} ${t.buttonHover} transition-all duration-200 active:scale-90 shadow-xl inline-block`}
@@ -1053,8 +1472,10 @@ export default function App() {
             {(appState === 'RUNNING' || appState === 'COOLDOWN') && (
               <div className="flex flex-col items-center justify-center space-y-3 md:space-y-4 w-full">
                 
-                {/* Mode & Cycle Badges */}
+                {/* Mode & Cycle & Real Time Clock & Online Badges */}
                 <div className="flex items-center gap-2 pointer-events-auto flex-wrap justify-center">
+                  <LiveClockBadge variant="hud" />
+                  <OnlineUserBadge variant="hud" />
                   <span className="text-[11px] tracking-wider font-black opacity-85 bg-white/70 px-3.5 py-1 rounded-full shadow-xs border border-black/5">
                     {appState === 'COOLDOWN' ? '降温休息中' : (
                       playMode === 'AUTO' ? `第 ${currentCycle} / ${autoCycles} 轮 · 阶梯渐进` : '随机盲盒模式'
@@ -1067,37 +1488,45 @@ export default function App() {
 
                 {/* Big BPM or Cooldown Center Display */}
                 {appState === 'COOLDOWN' ? (
-                  <div className="flex flex-col items-center my-2 space-y-2.5">
+                  <div className="flex flex-col items-center my-2 sm:my-3 space-y-3">
                     {/* Translucent soothing breathing guidance */}
                     <div 
-                      className="px-5 py-2.5 rounded-full bg-cyan-500/10 border border-cyan-400/20 backdrop-blur-sm shadow-xs flex items-center gap-2"
+                      className="px-6 py-3 rounded-full bg-cyan-500/10 border border-cyan-400/20 backdrop-blur-sm shadow-xs flex items-center gap-2.5"
                       style={{
                         animation: 'cooldown-text-pulse 4s ease-in-out infinite'
                       }}
                     >
-                      <Wind className="w-4 h-4 text-cyan-600 animate-pulse" />
-                      <span className="text-sm md:text-base font-black tracking-widest text-cyan-800">
+                      <Wind className="w-4 h-4 md:w-5 md:h-5 text-cyan-600 animate-pulse" />
+                      <span className="text-sm sm:text-base md:text-lg font-black tracking-widest text-cyan-800">
                         深呼吸 · 让节奏慢下来
                       </span>
                     </div>
 
-                    <div className="text-4xl md:text-5xl font-black text-cyan-700/60 tracking-wider">
+                    <div className="text-4xl sm:text-5xl md:text-6xl font-black text-cyan-700/60 tracking-wider">
                       双手离开
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center my-0.5">
-                    <div className={`text-7xl md:text-8xl font-black tabular-nums tracking-tighter drop-shadow-sm flex items-baseline justify-center ${isPressing ? 'scale-95' : 'scale-100'} transition-transform duration-200`}>
+                  <div className="flex flex-col items-center my-1 sm:my-2">
+                    <div className={`text-7xl sm:text-8xl md:text-9xl font-black tabular-nums tracking-tighter drop-shadow-xs flex items-baseline justify-center ${isPressing ? 'scale-95' : 'scale-100'} transition-transform duration-200`}>
                       <span>{bpm}</span>
-                      <span className="text-xl md:text-2xl ml-2 font-bold opacity-50 tracking-wider">bpm</span>
+                      <span className="text-xl sm:text-2xl md:text-3xl ml-2 sm:ml-3 font-bold opacity-50 tracking-wider">bpm</span>
                     </div>
                     {playMode === 'AUTO' && (
-                      <span className="text-xs font-black opacity-60 tracking-widest mt-1">
+                      <span className="text-xs sm:text-sm font-black opacity-65 tracking-widest mt-1">
                         {STAGE_NAMES[bpm].name} · {STAGE_NAMES[bpm].desc}
                       </span>
                     )}
                   </div>
                 )}
+
+                {/* Dynamic BPM Rhythm Waveform Indicator */}
+                <RhythmWaveform 
+                  bpm={bpm} 
+                  pulse={pulse} 
+                  isCooldown={appState === 'COOLDOWN'} 
+                  className="my-1 pointer-events-auto" 
+                />
 
                 {/* Phrase Guide */}
                 <div className="min-h-[2.5rem] flex items-center justify-center px-4">
