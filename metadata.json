@@ -1,0 +1,8 @@
+{
+  "name": "EdgeControl",
+  "description": "赛博寸止倒计时与节拍器控制网页，配合辅助训练",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
