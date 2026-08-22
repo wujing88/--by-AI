@@ -277,7 +277,7 @@ class RealtimePresenceManager {
         }),
       });
       if (res.ok) {
-        const data = await res.json();
+        const data = (await res.json()) as { onlineCount?: number; trainingCount?: number };
         this.consecutiveFailures = 0;
         this.updateState({
           onlineCount: Math.max(1, Number(data.onlineCount) || 1),
