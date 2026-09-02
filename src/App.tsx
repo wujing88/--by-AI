@@ -639,7 +639,7 @@ export default function App() {
           {/* Real-time Clock & Live Online Count Badges in Header */}
           <div className="flex items-center gap-1.5 sm:gap-2 md:gap-2.5 shrink-0">
             <LiveClockBadge variant="header" isDark={theme === 'midnight'} />
-            <OnlineUserBadge variant="header" />
+            <OnlineUserBadge variant="header" isDark={theme === 'midnight'} />
 
             <button 
               onClick={() => setMuted(!muted)} 
@@ -1309,7 +1309,7 @@ export default function App() {
                     
                     {/* Live Online Community Interactive Card */}
                     <div className="w-full min-w-0">
-                      <OnlineUserBadge variant="card" />
+                      <OnlineUserBadge variant="card" isDark={theme === 'midnight'} />
                     </div>
 
                     {/* Mobile Portrait Optimization Notice & Collapsible Toggle */}
@@ -1534,9 +1534,11 @@ export default function App() {
                 
                 {/* Mode & Cycle & Real Time Clock & Online Badges */}
                 <div className="flex items-center gap-2 pointer-events-auto flex-wrap justify-center">
-                  <LiveClockBadge variant="hud" />
-                  <OnlineUserBadge variant="hud" />
-                  <span className="text-[11px] tracking-wider font-black opacity-85 bg-white/70 px-3.5 py-1 rounded-full shadow-xs border border-black/5">
+                  <LiveClockBadge variant="hud" isDark={theme === 'midnight'} />
+                  <OnlineUserBadge variant="hud" isDark={theme === 'midnight'} />
+                  <span className={`text-[11px] tracking-wider font-black opacity-85 px-3.5 py-1 rounded-full shadow-xs border ${
+                    theme === 'midnight' ? 'bg-purple-950/70 text-purple-200 border-purple-800/60' : 'bg-white/70 text-slate-800 border-black/5'
+                  }`}>
                     {appState === 'COOLDOWN' ? '降温休息中' : (
                       playMode === 'AUTO' ? `第 ${currentCycle} / ${autoCycles} 轮 · 阶梯渐进` : '随机盲盒模式'
                     )}
