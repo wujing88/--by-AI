@@ -158,7 +158,7 @@
    * **Framework Preset**：`Vite`
    * **Build command**：`npm run build` 或 `vite build`
    * **Build output directory**：`dist`
-4. 点击 **Save and Deploy** 即可完成全球多节点 CDN 部署（已内置 `_headers` 与 `_redirects` SPA 规则）。
+4. 点击 **Save and Deploy** 即可完成全球多节点 CDN 部署（已内置安全响应头 `_headers`）。
 
 ### 方案 B：Cloudflare Workers (Wrangler CLI)
 * 构建并直接部署 Workers 全栈版（含实时在线律动同伴 WebSocket 服务）：
@@ -166,5 +166,6 @@
   npm run build
   npx wrangler deploy
   ```
+  > `wrangler.jsonc` 已配置 `"not_found_handling": "single-page-application"` 自动托管 SPA 路由。
 
 
