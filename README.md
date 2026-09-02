@@ -145,3 +145,26 @@
    * 建议每周进行 **3~4 次** 规律训练，避免单日过度疲劳；
    * 保持良好睡眠与充足水分补充，健康锻炼，稳步突破！
 
+---
+
+## 9. 🚀 Cloudflare (Pages / Workers) 极速部署指南
+
+项目已原生兼容 **Cloudflare Pages** 与 **Cloudflare Workers (with Assets & Durable Objects)**：
+
+### 方案 A：Cloudflare Pages（推荐，连接 GitHub 自动构建部署）
+1. 将代码推送到您的 **GitHub 仓库**；
+2. 登录 **Cloudflare Dashboard** ➔ 点击 **Workers & Pages** ➔ **Create application** ➔ **Pages** ➔ **Connect to Git**；
+3. 选择刚刚推送的 GitHub 仓库，填写构建配置：
+   * **Framework Preset**：`Vite`
+   * **Build command**：`npm run build` 或 `vite build`
+   * **Build output directory**：`dist`
+4. 点击 **Save and Deploy** 即可完成全球多节点 CDN 部署（已内置 `_headers` 与 `_redirects` SPA 规则）。
+
+### 方案 B：Cloudflare Workers (Wrangler CLI)
+* 构建并直接部署 Workers 全栈版（含实时在线律动同伴 WebSocket 服务）：
+  ```bash
+  npm run build
+  npx wrangler deploy
+  ```
+
+

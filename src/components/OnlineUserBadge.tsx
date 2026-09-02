@@ -80,14 +80,14 @@ export default function OnlineUserBadge({ variant = 'header', className = '' }: 
       <>
         <div 
           onClick={() => setShowModal(true)}
-          className={`w-full p-3.5 rounded-2xl ${
+          className={`w-full min-w-0 p-3.5 rounded-2xl ${
             isOffline 
               ? 'bg-slate-500/10 border-slate-300/60' 
               : 'bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-rose-500/10 border-emerald-500/20'
           } border shadow-xs backdrop-blur-md flex items-center justify-between cursor-pointer hover:opacity-90 active:scale-[0.99] transition-all ${className}`}
         >
-          <div className="flex items-center gap-3">
-            <div className={`relative flex items-center justify-center w-9 h-9 rounded-xl ${isOffline ? 'bg-slate-500/15 text-slate-700' : 'bg-emerald-500/15 text-emerald-700'} shadow-xs`}>
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className={`relative flex items-center justify-center w-9 h-9 rounded-xl ${isOffline ? 'bg-slate-500/15 text-slate-700' : 'bg-emerald-500/15 text-emerald-700'} shadow-xs shrink-0`}>
               {isOffline ? <WifiOff className="w-4 h-4" /> : <Users className="w-4 h-4" />}
               {!isOffline && (
                 <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
@@ -96,8 +96,8 @@ export default function OnlineUserBadge({ variant = 'header', className = '' }: 
                 </span>
               )}
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-xs font-black text-slate-800">
                   {isOffline ? '本地离线运行模式' : '真实在线同伴律动'}
                 </span>
@@ -109,7 +109,7 @@ export default function OnlineUserBadge({ variant = 'header', className = '' }: 
                   {isOffline ? '本地免联网' : <><Radio className="w-2.5 h-2.5 animate-pulse text-emerald-600" /> 实时同步</>}
                 </span>
               </div>
-              <p className="text-[11px] font-medium text-slate-600 mt-0.5">
+              <p className="text-[11px] font-medium text-slate-600 mt-0.5 leading-snug">
                 {isOffline 
                   ? '已切换为本地运行：音频引擎与训练记录完全在本地运行' 
                   : '实时统计当前打开网页与进行训练的真实在线人数'}
@@ -247,13 +247,13 @@ export default function OnlineUserBadge({ variant = 'header', className = '' }: 
     <>
       <div 
         onClick={() => setShowModal(true)}
-        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/80 border border-black/5 shadow-xs text-xs font-bold text-slate-800 backdrop-blur-md cursor-pointer hover:bg-white active:scale-95 transition-all select-none ${className}`}
+        className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-full bg-white/80 border border-black/5 shadow-xs text-xs font-bold text-slate-800 backdrop-blur-md cursor-pointer hover:bg-white active:scale-95 transition-all select-none ${className}`}
         title={isOffline ? "当前处于离线模式（点击查看说明）" : "点击查看真实在线用户连接数据"}
       >
         {isOffline ? (
           <>
             <WifiOff className="w-3.5 h-3.5 text-slate-500" />
-            <span className="text-[11px] font-bold text-slate-600">离线模式</span>
+            <span className="text-[10px] sm:text-[11px] font-bold text-slate-600">离线</span>
           </>
         ) : (
           <>
@@ -261,13 +261,13 @@ export default function OnlineUserBadge({ variant = 'header', className = '' }: 
               <span className={`absolute inline-flex h-full w-full rounded-full ${isConnected ? 'bg-emerald-400 animate-ping opacity-75' : 'bg-amber-400'}`}></span>
               <span className={`relative inline-flex rounded-full h-2 w-2 ${isConnected ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
             </span>
-            <Users className="w-3.5 h-3.5 text-slate-500" />
-            <span className="tabular-nums font-black text-[13px] text-slate-900">{onlineCount}</span>
-            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
+            <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-500" />
+            <span className="tabular-nums font-black text-xs sm:text-[13px] text-slate-900">{onlineCount}</span>
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-500/10 px-1 sm:px-1.5 py-0.2 sm:py-0.5 rounded-full">
               在线
             </span>
             {delta !== null && (
-              <span className={`text-[10px] font-black ${delta > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+              <span className={`hidden sm:inline-block text-[10px] font-black ${delta > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
                 {delta > 0 ? `+${delta}` : delta}
               </span>
             )}

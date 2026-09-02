@@ -77,16 +77,16 @@ export default function LiveClockBadge({ variant = 'header', className = '', isD
   if (variant === 'banner') {
     // Large reminder banner on IDLE or CLIMAX screen
     return (
-      <div className={`w-full px-4 py-2.5 rounded-2xl ${
+      <div className={`w-full px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl ${
         isDark ? 'bg-[#18122c] border-purple-800/40 text-purple-200' : 'bg-white/75 border-black/5 text-slate-800'
-      } border backdrop-blur-sm shadow-xs flex items-center justify-between text-xs ${className}`}>
-        <div className="flex items-center gap-2">
-          <div className={`w-6 h-6 rounded-full ${isDark ? 'bg-rose-500/20 text-rose-300' : 'bg-rose-500/10 text-rose-600'} flex items-center justify-center`}>
+      } border backdrop-blur-sm shadow-xs flex items-center justify-between gap-2 text-xs ${className}`}>
+        <div className="flex items-center gap-2 min-w-0">
+          <div className={`w-6 h-6 rounded-full ${isDark ? 'bg-rose-500/20 text-rose-300' : 'bg-rose-500/10 text-rose-600'} flex items-center justify-center shrink-0`}>
             {reminder.icon}
           </div>
-          <span className={`font-bold ${isDark ? 'text-rose-100' : 'text-slate-700'}`}>{reminder.text}</span>
+          <span className={`font-bold ${isDark ? 'text-rose-100' : 'text-slate-700'} text-[11px] sm:text-xs truncate`}>{reminder.text}</span>
         </div>
-        <div className={`flex items-center gap-1 font-black ${isDark ? 'text-rose-200 bg-purple-950/80 border border-purple-800/40' : 'text-slate-900 bg-black/5'} tabular-nums px-2.5 py-1 rounded-xl`}>
+        <div className={`flex items-center gap-1 font-black ${isDark ? 'text-rose-200 bg-purple-950/80 border border-purple-800/40' : 'text-slate-900 bg-black/5'} tabular-nums px-2 sm:px-2.5 py-1 rounded-xl shrink-0 text-[11px] sm:text-xs`}>
           <Clock className="w-3 h-3 opacity-60" />
           <span>{hoursStr}:{minutesStr}:{secondsStr}</span>
         </div>
@@ -94,10 +94,10 @@ export default function LiveClockBadge({ variant = 'header', className = '', isD
     );
   }
 
-  // Default 'header' Variant (Compact & Elegant for Top Bar)
+  // Default 'header' Variant (Compact & Elegant for Top Bar - Hidden on small mobile to avoid top bar overcrowding)
   return (
     <div 
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
+      className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
         isDark ? 'bg-[#1c1533] border-purple-800/50 text-rose-200' : 'bg-white/80 border-black/5 text-slate-800'
       } border shadow-xs text-xs font-bold backdrop-blur-md select-none transition-all ${className}`}
       title="当前真实时间 · 理性训练，注意休息，别沉迷"
@@ -108,7 +108,7 @@ export default function LiveClockBadge({ variant = 'header', className = '', isD
           {hoursStr}:{minutesStr}:{secondsStr}
         </span>
       </div>
-      <span className={`hidden sm:inline-block text-[10px] font-bold ${
+      <span className={`hidden md:inline-block text-[10px] font-bold ${
         isDark ? 'text-rose-300 bg-rose-500/20 border border-rose-500/30' : 'text-rose-700/80 bg-rose-500/10'
       } px-2 py-0.5 rounded-full`}>
         {reminder.shortText}
