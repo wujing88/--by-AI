@@ -35,7 +35,8 @@ import {
   Monitor,
   Sliders,
   SlidersHorizontal,
-  Gauge
+  Gauge,
+  Compass
 } from 'lucide-react';
 import { metronome } from './utils/audio';
 import ParticleEffect from './components/ParticleEffect';
@@ -612,8 +613,8 @@ export default function App() {
         )}
 
         {/* Top Bar Header */}
-        <header className="sticky top-0 px-3.5 py-3 sm:px-6 sm:py-4 md:px-8 md:py-5 lg:px-10 lg:py-6 flex justify-between items-center z-30 shrink-0 gap-2 sm:gap-3 border-b border-black/[0.04] bg-inherit backdrop-blur-md">
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <header className="sticky top-0 px-3.5 py-3 sm:px-6 sm:py-4 md:px-8 md:py-5 lg:px-10 lg:py-6 flex justify-between items-center flex-nowrap z-30 shrink-0 gap-2 sm:gap-3 border-b border-black/[0.04] bg-inherit backdrop-blur-md">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0 flex-nowrap">
             {appState !== 'IDLE' && (
               <button 
                 onClick={() => {
@@ -621,13 +622,13 @@ export default function App() {
                   metronome.stop(true, 0.4);
                   setShowParticles(false);
                 }}
-                className={`p-2 sm:p-2.5 md:p-3 rounded-full ${t.buttonBg} ${t.buttonHover} transition-all duration-200 active:scale-95 shadow-xs`}
+                className={`p-2 sm:p-2.5 md:p-3 rounded-full ${t.buttonBg} ${t.buttonHover} transition-all duration-200 active:scale-95 shadow-xs shrink-0`}
                 title="返回主页"
               >
                 <Home className="w-4 h-4 md:w-5 md:h-5" />
               </button>
             )}
-            <h1 className="text-base sm:text-xl md:text-2xl font-black tracking-wider flex items-center gap-1.5 sm:gap-2">
+            <h1 className="text-base sm:text-xl md:text-2xl font-black tracking-wider flex items-center gap-1.5 sm:gap-2 flex-nowrap shrink-0">
               <Flame className={`w-5 h-5 md:w-6 md:h-6 ${t.accent} shrink-0`} />
               <span>律动</span>
               <span className="hidden sm:inline-block text-[11px] font-bold opacity-50 px-2 py-0.5 rounded-full bg-black/5">
@@ -637,13 +638,20 @@ export default function App() {
           </div>
 
           {/* Real-time Clock & Live Online Count Badges in Header */}
-          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-2.5 shrink-0">
-            <LiveClockBadge variant="header" isDark={theme === 'midnight'} />
-            <OnlineUserBadge variant="header" isDark={theme === 'midnight'} />
+          <div className="flex items-center gap-2 flex-nowrap shrink-0">
+            {/* Header Badges Container: flex-nowrap items-center shrink-0 w-auto max-w-full overflow-hidden */}
+            <div className="flex flex-nowrap items-center gap-2 shrink-0 w-auto max-w-full overflow-hidden">
+              <div className="min-w-fit shrink-0">
+                <LiveClockBadge variant="header" isDark={theme === 'midnight'} className="shrink-0" />
+              </div>
+              <div className="min-w-fit shrink-0">
+                <OnlineUserBadge variant="header" isDark={theme === 'midnight'} className="shrink-0" />
+              </div>
+            </div>
 
             <button 
               onClick={() => setMuted(!muted)} 
-              className={`relative p-2 sm:p-2.5 md:p-3 rounded-full transition-all duration-300 active:scale-95 shadow-xs ${
+              className={`relative p-2 sm:p-2.5 md:p-3 rounded-full transition-all duration-300 active:scale-95 shadow-xs shrink-0 ${
                 muted 
                   ? 'bg-rose-500/20 text-rose-700 border border-rose-400/50 ring-2 ring-rose-400/60 shadow-[0_0_16px_rgba(244,63,94,0.4)] animate-pulse' 
                   : `${t.buttonBg} ${t.buttonHover}`
@@ -664,7 +672,7 @@ export default function App() {
             </button>
             <button 
               onClick={() => setShowSettings(!showSettings)} 
-              className={`p-2 sm:p-2.5 md:p-3 rounded-full ${t.buttonBg} ${t.buttonHover} transition-all duration-200 active:scale-95 shadow-xs`}
+              className={`p-2 sm:p-2.5 md:p-3 rounded-full ${t.buttonBg} ${t.buttonHover} transition-all duration-200 active:scale-95 shadow-xs shrink-0`}
               title="偏好设置"
             >
               <Settings2 className="w-4 h-4 md:w-5 md:h-5" />
@@ -1057,7 +1065,7 @@ export default function App() {
             )}
           </div>
 
-          <div className={`relative z-10 flex flex-col items-center justify-center w-full ${appState === 'IDLE' ? 'max-w-full' : 'max-w-2xl'} pointer-events-none transition-all duration-500`}>
+          <div className={`relative z-10 flex flex-col items-center justify-center w-full ${appState === 'IDLE' ? 'max-w-7xl mx-auto' : 'max-w-2xl'} pointer-events-none transition-all duration-500`}>
             
             {!audioEnabled && (
               <div className={`mb-3 inline-flex items-center gap-2 px-5 py-2 rounded-full text-xs font-black tracking-widest ${t.buttonBg} shadow-sm animate-bounce pointer-events-auto`}>
@@ -1066,359 +1074,390 @@ export default function App() {
               </div>
             )}
 
-            {/* IDLE State - Responsive 2-Column Desktop Grid / Single Column Mobile Layout */}
+            {/* IDLE State - Perfectly Balanced Proportional Flexbox Layout for Desktop & Mobile */}
             {appState === 'IDLE' && (
               <div className="w-full min-w-0 pointer-events-auto">
-                <div className="lg:grid lg:grid-cols-12 lg:gap-8 xl:gap-10 lg:items-start text-left w-full min-w-0">
+                <div className="flex flex-col gap-5 sm:gap-6 lg:gap-8 text-left w-full min-w-0">
                   
-                  {/* Left Column: Command & Mode Configuration (7 cols on lg) */}
-                  <div className="w-full min-w-0 lg:col-span-7 flex flex-col gap-4 md:gap-5">
+                  {/* Upper Module: Proportional Flexbox Split (Desktop Left ~53% : Right ~47% | Mobile Stacked) */}
+                  <div className="w-full min-w-0 flex flex-col lg:flex-row items-stretch gap-5 sm:gap-6 lg:gap-8 xl:gap-9">
                     
-                    {/* Header & Subtitle */}
-                    <div className="w-full min-w-0 space-y-1 text-center lg:text-left">
-                      <div className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1 rounded-full bg-rose-500/10 text-rose-500 mb-1">
-                        <Zap className="w-3.5 h-3.5" />
-                        <span>科学阶梯节奏递进 · 突破持久耐力</span>
-                      </div>
-                      <h2 className={`text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight ${theme === 'midnight' ? 'text-rose-100' : 'text-slate-900'}`}>
-                        律动控精训练
-                      </h2>
-                      <p className="text-xs sm:text-sm font-medium opacity-70 leading-relaxed">
-                        通过精准 Web Audio 节拍器与渐进式脱敏循环，训练盆底神经抗刺激耐受度与身心掌控力。
-                      </p>
-                    </div>
-
-                    {/* Real-time Clock & Anti-addiction Contextual Banner */}
-                    <div className="w-full min-w-0">
-                      <LiveClockBadge variant="banner" isDark={theme === 'midnight'} />
-                    </div>
-
-                    {/* Main Progressive Mode Card with Cycle Count Selector */}
-                    <div className={`w-full min-w-0 p-5 sm:p-6 md:p-7 rounded-[2rem] border ${
-                      theme === 'midnight' 
-                        ? 'bg-[#151026] border-purple-900/60 text-rose-100 shadow-[0_10px_30px_rgba(0,0,0,0.5)]' 
-                        : `${t.buttonBg} shadow-sm`
-                    } text-left transition-all hover:shadow-md`}>
-                      <div className="w-full min-w-0 flex flex-col gap-4">
-                        <div className="flex items-center justify-between w-full min-w-0">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className={`w-11 h-11 rounded-2xl ${
-                              theme === 'midnight' ? 'bg-purple-900/40 text-rose-400' : 'bg-black/5'
-                            } flex items-center justify-center shrink-0`}>
-                              <TrendingUp className={`w-6 h-6 ${theme === 'midnight' ? 'text-rose-400' : t.accent}`} />
-                            </div>
-                            <div className="min-w-0">
-                              <h3 className="text-base sm:text-lg font-black tracking-wider flex items-center gap-2 flex-wrap">
-                                <span>循序渐进模式</span>
-                                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
-                                  theme === 'midnight' 
-                                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' 
-                                    : 'bg-rose-500/15 text-rose-700 border border-rose-500/20'
-                                }`}>
-                                  4 阶段递进
-                                </span>
-                              </h3>
-                              <p className={`text-xs ${theme === 'midnight' ? 'text-purple-300/70' : 'opacity-65'} mt-0.5`}>
-                                30 → 60 → 90 → 120 BPM 自动升级，单轮 10 分钟
-                              </p>
-                            </div>
-                          </div>
+                    {/* Left Column: Command & Progressive Training (Flex Proportional Basis) */}
+                    <div className="w-full min-w-0 flex-1 lg:flex-[53] lg:basis-0 flex flex-col justify-between gap-4 md:gap-5">
+                      
+                      {/* Header & Subtitle */}
+                      <div className="w-full min-w-0 space-y-1.5 text-center lg:text-left">
+                        <div className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1 rounded-full bg-rose-500/10 text-rose-500 mb-0.5">
+                          <Zap className="w-3.5 h-3.5" />
+                          <span>科学阶梯节奏递进 · 突破持久耐力</span>
                         </div>
+                        <h2 className={`text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight ${theme === 'midnight' ? 'text-rose-100' : 'text-slate-900'}`}>
+                          律动控精训练
+                        </h2>
+                        <p className="text-xs sm:text-sm font-medium opacity-70 leading-relaxed w-full">
+                          通过精准 Web Audio 节拍器与渐进式脱敏循环，训练盆底神经抗刺激耐受度与身心掌控力。
+                        </p>
+                      </div>
 
-                        {/* Cycle Counter Selector & Recommendation */}
-                        <div className={`w-full min-w-0 p-3.5 rounded-2xl space-y-3 border ${
-                          theme === 'midnight' 
-                            ? 'bg-[#1e1738] border-purple-800/40' 
-                            : 'bg-black/[0.03] border-black/5'
-                        }`}>
-                          <div className="flex items-center justify-between flex-wrap gap-2">
-                            <div className="flex items-center gap-1.5 text-xs font-black">
-                              <Target className="w-4 h-4 opacity-70" />
-                              <span>训练循环次数：</span>
-                            </div>
-                            
-                            {/* Recommendation Badge */}
-                            <div className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black border ${
-                              theme === 'midnight' 
-                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' 
-                                : 'bg-amber-500/15 text-amber-800 border border-amber-500/20'
-                            }`}>
-                              <Award className={`w-3.5 h-3.5 ${theme === 'midnight' ? 'text-amber-400' : 'text-amber-600'}`} />
-                              <span>推荐 2~3 轮 (20~30分钟)</span>
-                            </div>
-                          </div>
+                      {/* Real-time Clock & Anti-addiction Contextual Banner */}
+                      <div className="w-full min-w-0">
+                        <LiveClockBadge variant="banner" isDark={theme === 'midnight'} />
+                      </div>
 
-                          {/* Cycle Pills */}
-                          <div className="grid grid-cols-4 gap-2 w-full min-w-0">
-                            {([1, 2, 3, 4] as number[]).map((cycleNum) => {
-                              const isSelected = autoCycles === cycleNum;
-                              const isRecommended = cycleNum === 2 || cycleNum === 3;
-                              
-                              let pillClass = '';
-                              if (theme === 'midnight') {
-                                if (isSelected) {
-                                  pillClass = 'bg-gradient-to-br from-rose-500 to-purple-600 text-white font-black shadow-lg shadow-rose-950/60 ring-2 ring-rose-400 scale-[1.03]';
-                                } else {
-                                  pillClass = 'bg-[#291f4d] hover:bg-[#342761] text-purple-200 hover:text-white font-bold border border-purple-700/50 hover:border-purple-500/80';
-                                }
-                              } else {
-                                if (isSelected) {
-                                  pillClass = 'bg-slate-900 text-white font-black shadow-md scale-[1.03]';
-                                } else {
-                                  pillClass = 'bg-white hover:bg-slate-50 text-slate-800 font-bold border border-black/10 shadow-2xs opacity-90 hover:opacity-100';
-                                }
-                              }
-
-                              return (
-                                <button
-                                  key={cycleNum}
-                                  onClick={() => setAutoCycles(cycleNum)}
-                                  className={`py-2.5 px-1.5 rounded-xl text-center transition-all duration-200 flex flex-col items-center justify-center relative ${pillClass}`}
-                                >
-                                  <span className="text-xs sm:text-sm font-black">{cycleNum} 轮</span>
-                                  <span className={`text-[10px] ${isSelected ? 'text-white/85' : (theme === 'midnight' ? 'text-purple-300/80' : 'text-slate-500')} mt-0.5`}>
-                                    {cycleNum * 10} 分钟
+                      {/* Main Progressive Mode Card with Cycle Count Selector */}
+                      <div className={`w-full min-w-0 p-5 sm:p-6 md:p-7 rounded-[2rem] border ${
+                        theme === 'midnight' 
+                          ? 'bg-[#151026] border-purple-900/60 text-rose-100 shadow-[0_10px_30px_rgba(0,0,0,0.5)]' 
+                          : `${t.buttonBg} shadow-sm`
+                      } text-left transition-all hover:shadow-md flex flex-col justify-between flex-1 gap-4`}>
+                        <div className="w-full min-w-0 flex flex-col gap-4">
+                          <div className="flex items-center justify-between w-full min-w-0">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={`w-11 h-11 rounded-2xl ${
+                                theme === 'midnight' ? 'bg-purple-900/40 text-rose-400' : 'bg-black/5'
+                              } flex items-center justify-center shrink-0`}>
+                                <TrendingUp className={`w-6 h-6 ${theme === 'midnight' ? 'text-rose-400' : t.accent}`} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <h3 className="text-base sm:text-lg font-black tracking-wider flex items-center gap-2 flex-wrap">
+                                  <span>循序渐进模式</span>
+                                  <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
+                                    theme === 'midnight' 
+                                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' 
+                                      : 'bg-rose-500/15 text-rose-700 border border-rose-500/20'
+                                  }`}>
+                                    4 阶段递进
                                   </span>
-                                  {isRecommended && !isSelected && (
-                                    <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500 ${
-                                      theme === 'midnight' ? 'ring-2 ring-[#291f4d]' : 'ring-2 ring-white'
-                                    } animate-pulse`} />
-                                  )}
-                                </button>
-                              );
-                            })}
+                                </h3>
+                                <p className={`text-xs ${theme === 'midnight' ? 'text-purple-300/70' : 'opacity-65'} mt-0.5`}>
+                                  30 → 60 → 90 → 120 BPM 自动升级，单轮 10 分钟
+                                </p>
+                              </div>
+                            </div>
                           </div>
 
-                          {/* "Why is this recommended?" Accordion */}
-                          <div className="pt-1 w-full min-w-0">
-                            <button
-                              onClick={() => setShowCycleWhy(!showCycleWhy)}
-                              className="w-full flex items-center justify-between text-[11px] sm:text-xs font-bold opacity-75 hover:opacity-100 transition-opacity py-1 px-0.5"
-                            >
-                              <span className={`flex items-center gap-1 ${theme === 'midnight' ? 'text-rose-400' : 'text-rose-700'}`}>
-                                <HelpCircle className="w-3.5 h-3.5" />
-                                为什么科学推荐循环 2~3 轮？
-                              </span>
-                              {showCycleWhy ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                            </button>
-
-                            {showCycleWhy && (
-                              <div className={`mt-2 p-3.5 rounded-xl border text-xs leading-relaxed space-y-2 animate-fadeIn ${
-                                theme === 'midnight'
-                                  ? 'bg-[#18122c] border-purple-800/50 text-purple-200'
-                                  : 'bg-white/90 border-black/5 text-slate-800'
+                          {/* Cycle Counter Selector & Recommendation */}
+                          <div className={`w-full min-w-0 p-3.5 rounded-2xl space-y-3 border ${
+                            theme === 'midnight' 
+                              ? 'bg-[#1e1738] border-purple-800/40' 
+                              : 'bg-black/[0.03] border-black/5'
+                          }`}>
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <div className="flex items-center gap-1.5 text-xs font-black">
+                                <Target className="w-4 h-4 opacity-70" />
+                                <span>训练循环次数：</span>
+                              </div>
+                              
+                              {/* Recommendation Badge */}
+                              <div className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black border ${
+                                theme === 'midnight' 
+                                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' 
+                                  : 'bg-amber-500/15 text-amber-800 border border-amber-500/20'
                               }`}>
-                                <div className="flex gap-2">
-                                  <span className={`font-black ${theme === 'midnight' ? 'text-rose-400' : 'text-rose-600'} shrink-0`}>第 1 轮：</span>
-                                  <span className="opacity-90"><strong>唤醒与神经脱敏</strong> · 从 30 BPM 慢速渐入 120 冲刺，让敏感神经适应刺激节奏，建立第一道耐受防线。</span>
+                                <Award className={`w-3.5 h-3.5 ${theme === 'midnight' ? 'text-amber-400' : 'text-amber-600'}`} />
+                                <span>推荐 2~3 轮 (20~30分钟)</span>
+                              </div>
+                            </div>
+
+                            {/* Cycle Pills - Proportional Flexbox */}
+                            <div className="flex flex-row gap-2 w-full min-w-0">
+                              {([1, 2, 3, 4] as number[]).map((cycleNum) => {
+                                const isSelected = autoCycles === cycleNum;
+                                const isRecommended = cycleNum === 2 || cycleNum === 3;
+                                
+                                let pillClass = '';
+                                if (theme === 'midnight') {
+                                  if (isSelected) {
+                                    pillClass = 'bg-gradient-to-br from-rose-500 to-purple-600 text-white font-black shadow-lg shadow-rose-950/60 ring-2 ring-rose-400 scale-[1.03]';
+                                  } else {
+                                    pillClass = 'bg-[#291f4d] hover:bg-[#342761] text-purple-200 hover:text-white font-bold border border-purple-700/50 hover:border-purple-500/80';
+                                  }
+                                } else {
+                                  if (isSelected) {
+                                    pillClass = 'bg-slate-900 text-white font-black shadow-md scale-[1.03]';
+                                  } else {
+                                    pillClass = 'bg-white hover:bg-slate-50 text-slate-800 font-bold border border-black/10 shadow-2xs opacity-90 hover:opacity-100';
+                                  }
+                                }
+
+                                return (
+                                  <button
+                                    key={cycleNum}
+                                    onClick={() => setAutoCycles(cycleNum)}
+                                    className={`flex-1 min-w-0 py-2.5 px-1 rounded-xl text-center transition-all duration-200 flex flex-col items-center justify-center relative ${pillClass}`}
+                                  >
+                                    <span className="text-xs sm:text-sm font-black">{cycleNum} 轮</span>
+                                    <span className={`text-[10px] ${isSelected ? 'text-white/85' : (theme === 'midnight' ? 'text-purple-300/80' : 'text-slate-500')} mt-0.5`}>
+                                      {cycleNum * 10} 分钟
+                                    </span>
+                                    {isRecommended && !isSelected && (
+                                      <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500 ${
+                                        theme === 'midnight' ? 'ring-2 ring-[#291f4d]' : 'ring-2 ring-white'
+                                      } animate-pulse`} />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* "Why is this recommended?" Accordion */}
+                            <div className="pt-1 w-full min-w-0">
+                              <button
+                                onClick={() => setShowCycleWhy(!showCycleWhy)}
+                                className="w-full flex items-center justify-between text-[11px] sm:text-xs font-bold opacity-75 hover:opacity-100 transition-opacity py-1 px-0.5"
+                              >
+                                <span className={`flex items-center gap-1 ${theme === 'midnight' ? 'text-rose-400' : 'text-rose-700'}`}>
+                                  <HelpCircle className="w-3.5 h-3.5" />
+                                  为什么科学推荐循环 2~3 轮？
+                                </span>
+                                {showCycleWhy ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                              </button>
+
+                              {showCycleWhy && (
+                                <div className={`mt-2 p-3.5 rounded-xl border text-xs leading-relaxed space-y-2 animate-fadeIn ${
+                                  theme === 'midnight'
+                                    ? 'bg-[#18122c] border-purple-800/50 text-purple-200'
+                                    : 'bg-white/90 border-black/5 text-slate-800'
+                                }`}>
+                                  <div className="flex gap-2">
+                                    <span className={`font-black ${theme === 'midnight' ? 'text-rose-400' : 'text-rose-600'} shrink-0`}>第 1 轮：</span>
+                                    <span className="opacity-90"><strong>唤醒与神经脱敏</strong> · 从 30 BPM 慢速渐入 120 冲刺，让敏感神经适应刺激节奏，建立第一道耐受防线。</span>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <span className={`font-black ${theme === 'midnight' ? 'text-amber-400' : 'text-amber-600'} shrink-0`}>第 2 轮：</span>
+                                    <span className="opacity-90"><strong>强化控精与边缘掌控（核心）</strong> · 在高度兴奋阈值下骤然回到 30 BPM 急刹车，极度强化边缘控精（Edging）耐力。</span>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <span className={`font-black ${theme === 'midnight' ? 'text-teal-400' : 'text-teal-600'} shrink-0`}>第 3 轮：</span>
+                                    <span className="opacity-90"><strong>突破生理持久上限</strong> · 重塑射精反射弧与神经阻断，达成身心自如的长效持久掌控。</span>
+                                  </div>
+                                  <div className={`pt-1 border-t ${theme === 'midnight' ? 'border-purple-800/40 text-purple-300/60' : 'border-black/5 text-black/60'} text-[11px] italic`}>
+                                    💡 科学提示：单轮刺激未达深度脱敏；超过 4 轮肌肉易疲劳引发代偿，2~3 轮为黄金耐力区间。
+                                  </div>
                                 </div>
-                                <div className="flex gap-2">
-                                  <span className={`font-black ${theme === 'midnight' ? 'text-amber-400' : 'text-amber-600'} shrink-0`}>第 2 轮：</span>
-                                  <span className="opacity-90"><strong>强化控精与边缘掌控（核心）</strong> · 在高度兴奋阈值下骤然回到 30 BPM 急刹车，极度强化边缘控精（Edging）耐力。</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Start Progressive Button */}
+                          <button
+                            onClick={() => startProgressiveMode(autoCycles)}
+                            className={`w-full py-4 rounded-2xl font-black text-sm md:text-base tracking-widest flex items-center justify-center gap-2 ${
+                              theme === 'midnight'
+                                ? 'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-lg shadow-rose-950/60'
+                                : 'bg-rose-600 hover:bg-rose-700 shadow-md'
+                            } text-white transition-all active:scale-98`}
+                          >
+                            <Play className="w-5 h-5 fill-white" />
+                            开启渐进模式（共 {autoCycles} 轮 · {autoCycles * 10} 分钟）
+                          </button>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* Right Column: Live Community, Telemetry & Achievements (Flex Proportional Basis) */}
+                    <div className="w-full min-w-0 flex-1 lg:flex-[47] lg:basis-0 flex flex-col justify-between gap-3.5 sm:gap-4 mt-1 lg:mt-0">
+                      
+                      {/* Live Online Community Interactive Card */}
+                      <div className="w-full min-w-0">
+                        <OnlineUserBadge variant="card" isDark={theme === 'midnight'} />
+                      </div>
+
+                      {/* Mobile Portrait Optimization Notice & Collapsible Toggle */}
+                      {isMobilePortrait && (
+                        <div className="w-full min-w-0 p-3 rounded-2xl bg-black/[0.03] border border-black/5 flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2 text-slate-700 font-bold min-w-0">
+                            <Smartphone className="w-4 h-4 text-rose-500 shrink-0" />
+                            <span className="truncate">竖屏模式：已优化布局释放操作视窗</span>
+                          </div>
+                          <button
+                            onClick={() => setShowPortraitChartsManual(!showPortraitChartsManual)}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white text-slate-900 font-black shadow-xs border border-black/5 text-[11px] active:scale-95 transition-all shrink-0"
+                          >
+                            {showPortraitChartsManual ? (
+                              <>
+                                <EyeOff className="w-3.5 h-3.5" />
+                                <span>收起图表</span>
+                              </>
+                            ) : (
+                              <>
+                                <BarChart3 className="w-3.5 h-3.5 text-rose-600" />
+                                <span>展开图表</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Historical Cumulative Stats & Achievement Card (Proportional Flexbox Metric Grid) */}
+                      {(!isMobilePortrait || showPortraitChartsManual) && (
+                        <div className={`w-full min-w-0 p-4 sm:p-5 rounded-3xl ${
+                          theme === 'midnight' 
+                            ? 'bg-[#1c1533] border-purple-800/40 text-rose-100 shadow-sm' 
+                            : 'bg-gradient-to-br from-amber-500/10 via-rose-500/10 to-indigo-500/10 border-black/5 shadow-xs'
+                        } border backdrop-blur-md flex flex-col gap-3 text-left animate-fadeIn`}>
+                          <div className="flex items-center justify-between w-full min-w-0">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-9 h-9 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center shadow-xs shrink-0">
+                                <Trophy className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-xs font-black tracking-wider">历史成就档案</span>
+                                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                    theme === 'midnight' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-amber-500/20 text-amber-900 border-amber-500/30'
+                                  } border`}>
+                                    {getAchievementLevel(userStats.totalCycles, userStats.totalSeconds).level}
+                                  </span>
                                 </div>
-                                <div className="flex gap-2">
-                                  <span className={`font-black ${theme === 'midnight' ? 'text-teal-400' : 'text-teal-600'} shrink-0`}>第 3 轮：</span>
-                                  <span className="opacity-90"><strong>突破生理持久上限</strong> · 重塑射精反射弧与神经阻断，达成身心自如的长效持久掌控。</span>
-                                </div>
-                                <div className={`pt-1 border-t ${theme === 'midnight' ? 'border-purple-800/40 text-purple-300/60' : 'border-black/5 text-black/60'} text-[11px] italic`}>
-                                  💡 科学提示：单轮刺激未达深度脱敏；超过 4 轮肌肉易疲劳引发代偿，2~3 轮为黄金耐力区间。
+                                <div className={`text-[10px] sm:text-[11px] font-bold ${
+                                  theme === 'midnight' ? 'text-amber-200/80' : 'text-amber-900/80'
+                                } truncate`}>
+                                  {getAchievementLevel(userStats.totalCycles, userStats.totalSeconds).title} · {getAchievementLevel(userStats.totalCycles, userStats.totalSeconds).desc}
                                 </div>
                               </div>
-                            )}
+                            </div>
+                          </div>
+
+                          {/* 2-Metric Proportional Flexbox Grid */}
+                          <div className="flex flex-row gap-2.5 w-full min-w-0">
+                            <div className={`flex-1 min-w-0 p-3 sm:p-3.5 rounded-2xl ${
+                              theme === 'midnight' ? 'bg-[#251d42] border-purple-800/40' : 'bg-white/85 border-black/5'
+                            } border flex items-center gap-2.5 shadow-xs`}>
+                              <div className="w-9 h-9 rounded-xl bg-rose-500/15 text-rose-400 flex items-center justify-center shrink-0">
+                                <Clock className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-[10px] font-bold opacity-60 truncate">累积训练时长</div>
+                                <div className={`text-sm sm:text-base font-black ${theme === 'midnight' ? 'text-rose-300' : 'text-rose-700'} tabular-nums truncate`}>
+                                  {formatTotalTime(userStats.totalSeconds)}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className={`flex-1 min-w-0 p-3 sm:p-3.5 rounded-2xl ${
+                              theme === 'midnight' ? 'bg-[#251d42] border-purple-800/40' : 'bg-white/85 border-black/5'
+                            } border flex items-center gap-2.5 shadow-xs`}>
+                              <div className="w-9 h-9 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center shrink-0">
+                                <RotateCcw className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-[10px] font-bold opacity-60 truncate">完成循环总数</div>
+                                <div className={`text-sm sm:text-base font-black ${theme === 'midnight' ? 'text-purple-300' : 'text-purple-700'} tabular-nums truncate`}>
+                                  {userStats.totalCycles} <span className="text-xs font-bold opacity-75">轮</span>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
+                      )}
 
-                        {/* Start Progressive Button */}
-                        <button
-                          onClick={() => startProgressiveMode(autoCycles)}
-                          className={`w-full py-4 rounded-2xl font-black text-sm md:text-base tracking-widest flex items-center justify-center gap-2 ${
-                            theme === 'midnight'
-                              ? 'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-lg shadow-rose-950/60'
-                              : 'bg-rose-600 hover:bg-rose-700 shadow-md'
-                          } text-white transition-all active:scale-98`}
-                        >
-                          <Play className="w-5 h-5 fill-white" />
-                          开启渐进模式（共 {autoCycles} 轮 · {autoCycles * 10} 分钟）
-                        </button>
+                      {/* Weekly 7-Day Training Frequency Heatmap Visualizer */}
+                      {(!isMobilePortrait || showPortraitChartsManual) && (
+                        <div className="w-full min-w-0 animate-fadeIn">
+                          <WeeklyActivityChart userStats={userStats} isDark={theme === 'midnight'} />
+                        </div>
+                      )}
+
+                      {/* Mindful Advice Card (Desktop Full, Mobile Subtle) */}
+                      <div className={`w-full min-w-0 p-3.5 sm:p-4 rounded-2xl ${
+                        theme === 'midnight' ? 'bg-[#1c1533] border-purple-800/40 text-purple-200/80' : 'bg-white/60 border-black/5 text-slate-600'
+                      } border backdrop-blur-xs flex items-start gap-2.5 sm:gap-3 text-xs leading-relaxed`}>
+                        <Heart className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                        <div className="min-w-0">
+                          <strong className={theme === 'midnight' ? 'text-rose-200' : 'text-slate-800'}>身心律动小贴士：</strong>
+                          训练中保持腹式深呼吸，肩膀盆底肌肉放松，在冲刺阶梯感受神经边缘张力，勿急于释放。
+                        </div>
                       </div>
+
                     </div>
 
-                    {/* Secondary Mode Cards Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full min-w-0">
-                      {/* Random Mode Card */}
+                  </div>
+
+                  {/* Lower Module: Secondary Exploration Modes (Flexbox Proportional 1:1 Cards) */}
+                  <div className="w-full min-w-0 flex flex-col gap-2.5 pt-1 lg:pt-2">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-xs font-black tracking-wider opacity-70 flex items-center gap-1.5">
+                        <Compass className="w-3.5 h-3.5 text-rose-500" />
+                        多元专注模式
+                      </span>
+                      <span className="text-[11px] font-bold opacity-50">自由掌控 · 随时随地即刻开启</span>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3.5 sm:gap-4 w-full min-w-0 items-stretch">
+                      {/* Random Mode Card - flex-1 Proportional */}
                       <button 
                         onClick={startRandomMode}
-                        className={`w-full min-w-0 p-4 rounded-2xl text-left border flex flex-col justify-between ${
+                        className={`w-full min-w-0 flex-1 p-4 sm:p-5 rounded-2xl text-left border flex flex-col justify-between ${
                           theme === 'midnight'
-                            ? 'bg-[#1e1738] border-purple-800/50 text-rose-100 hover:bg-[#271e47]'
+                            ? 'bg-[#18122c] border-purple-800/40 text-rose-100 hover:bg-[#231b40] hover:border-purple-600/60'
                             : `${t.buttonBg} ${t.buttonHover}`
                         } transition-all duration-200 active:scale-[0.98] shadow-xs group`}
                       >
-                        <div className="flex items-center gap-3 mb-2 min-w-0">
+                        <div className="flex items-center gap-3.5 mb-2.5 min-w-0 w-full">
                           <div className={`w-10 h-10 rounded-2xl ${
                             theme === 'midnight' ? 'bg-purple-900/40 text-rose-400' : 'bg-black/5'
                           } flex items-center justify-center shrink-0`}>
                             <Shuffle className={`w-5 h-5 ${theme === 'midnight' ? 'text-rose-400' : t.accent}`} />
                           </div>
-                          <div className="min-w-0">
-                            <h4 className="text-sm font-black tracking-wider">随机盲盒模式</h4>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              theme === 'midnight' ? 'bg-purple-900/50 text-purple-300' : 'bg-black/5 opacity-70'
-                            } mt-1 inline-block`}>未知刺激</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-sm sm:text-base font-black tracking-wider">随机盲盒模式</h4>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                theme === 'midnight' ? 'bg-purple-900/50 text-purple-300' : 'bg-black/5 opacity-70'
+                              }`}>未知刺激</span>
+                            </div>
+                            <p className={`text-xs ${theme === 'midnight' ? 'text-purple-300/70' : 'opacity-60'} mt-1 truncate sm:whitespace-normal`}>
+                              节奏完全随机变换，打破预设立场，挑战临界神经自控力
+                            </p>
                           </div>
                         </div>
-                        <div className="flex items-end justify-between w-full min-w-0">
-                          <p className={`text-xs ${theme === 'midnight' ? 'text-purple-300/70' : 'opacity-60'} mt-0.5 max-w-[80%]`}>节奏完全随机变换，打破预设立场</p>
-                          <Play className="w-4 h-4 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0" />
+                        <div className="flex items-center justify-between w-full min-w-0 pt-1 border-t border-black/[0.04] dark:border-purple-900/40">
+                          <span className="text-[11px] font-bold opacity-50">单手自由探索</span>
+                          <div className="flex items-center gap-1 text-xs font-black text-rose-500">
+                            <span>立即进入</span>
+                            <Play className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all fill-rose-500" />
+                          </div>
                         </div>
                       </button>
 
-                      {/* Manual Custom Mode Card */}
+                      {/* Manual Custom Mode Card - flex-1 Proportional */}
                       <button 
                         onClick={startManualMode}
-                        className={`w-full min-w-0 p-4 rounded-2xl text-left border flex flex-col justify-between ${
+                        className={`w-full min-w-0 flex-1 p-4 sm:p-5 rounded-2xl text-left border flex flex-col justify-between ${
                           theme === 'midnight'
-                            ? 'bg-[#1e1738] border-purple-800/50 text-rose-100 hover:bg-[#271e47]'
+                            ? 'bg-[#18122c] border-purple-800/40 text-rose-100 hover:bg-[#231b40] hover:border-purple-600/60'
                             : `${t.buttonBg} ${t.buttonHover}`
                         } transition-all duration-200 active:scale-[0.98] shadow-xs group`}
                       >
-                        <div className="flex items-center gap-3 mb-2 min-w-0">
+                        <div className="flex items-center gap-3.5 mb-2.5 min-w-0 w-full">
                           <div className={`w-10 h-10 rounded-2xl ${
                             theme === 'midnight' ? 'bg-purple-900/40 text-rose-400' : 'bg-black/5'
                           } flex items-center justify-center shrink-0`}>
                             <SlidersHorizontal className={`w-5 h-5 ${theme === 'midnight' ? 'text-rose-400' : t.accent}`} />
                           </div>
-                          <div className="min-w-0">
-                            <h4 className="text-sm font-black tracking-wider">手动自定义模式</h4>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              theme === 'midnight' ? 'bg-rose-900/50 text-rose-300' : 'bg-black/5 opacity-70'
-                            } mt-1 inline-block`}>自由控制</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-sm sm:text-base font-black tracking-wider">手动自定义模式</h4>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                theme === 'midnight' ? 'bg-rose-900/50 text-rose-300' : 'bg-black/5 opacity-70'
+                              }`}>自由控制</span>
+                            </div>
+                            <p className={`text-xs ${theme === 'midnight' ? 'text-purple-300/70' : 'opacity-60'} mt-1 truncate sm:whitespace-normal`}>
+                              根据自身承受状态，自由无级切换各档位节奏与间歇
+                            </p>
                           </div>
                         </div>
-                        <div className="flex items-end justify-between w-full min-w-0">
-                          <p className={`text-xs ${theme === 'midnight' ? 'text-purple-300/70' : 'opacity-60'} mt-0.5 max-w-[80%]`}>根据自身状态，自由切换各个节奏档位</p>
-                          <Play className="w-4 h-4 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0" />
+                        <div className="flex items-center justify-between w-full min-w-0 pt-1 border-t border-black/[0.04] dark:border-purple-900/40">
+                          <span className="text-[11px] font-bold opacity-50">任意档位调节</span>
+                          <div className="flex items-center gap-1 text-xs font-black text-rose-500">
+                            <span>立即进入</span>
+                            <Play className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all fill-rose-500" />
+                          </div>
                         </div>
                       </button>
                     </div>
-
-                  </div>
-
-                  {/* Right Column: Telemetry, Community, History & Tips (5 cols on lg) */}
-                  <div className="w-full min-w-0 lg:col-span-5 flex flex-col gap-4 md:gap-5 mt-5 lg:mt-0">
-                    
-                    {/* Live Online Community Interactive Card */}
-                    <div className="w-full min-w-0">
-                      <OnlineUserBadge variant="card" isDark={theme === 'midnight'} />
-                    </div>
-
-                    {/* Mobile Portrait Optimization Notice & Collapsible Toggle */}
-                    {isMobilePortrait && (
-                      <div className="w-full min-w-0 p-3 rounded-2xl bg-black/[0.03] border border-black/5 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2 text-slate-700 font-bold min-w-0">
-                          <Smartphone className="w-4 h-4 text-rose-500 shrink-0" />
-                          <span className="truncate">竖屏模式：已优化布局释放操作视窗</span>
-                        </div>
-                        <button
-                          onClick={() => setShowPortraitChartsManual(!showPortraitChartsManual)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white text-slate-900 font-black shadow-xs border border-black/5 text-[11px] active:scale-95 transition-all shrink-0"
-                        >
-                          {showPortraitChartsManual ? (
-                            <>
-                              <EyeOff className="w-3.5 h-3.5" />
-                              <span>收起图表</span>
-                            </>
-                          ) : (
-                            <>
-                              <BarChart3 className="w-3.5 h-3.5 text-rose-600" />
-                              <span>展开图表</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Historical Cumulative Stats & Achievement Card (Simplified in Portrait unless expanded, full in Landscape/Desktop) */}
-                    {(!isMobilePortrait || showPortraitChartsManual) && (
-                      <div className={`w-full min-w-0 p-4 sm:p-5 rounded-3xl ${
-                        theme === 'midnight' 
-                          ? 'bg-[#1c1533] border-purple-800/40 text-rose-100' 
-                          : 'bg-gradient-to-br from-amber-500/10 via-rose-500/10 to-indigo-500/10 border-black/5'
-                      } border shadow-xs backdrop-blur-md flex flex-col gap-3 text-left animate-fadeIn`}>
-                        <div className="flex items-center justify-between w-full min-w-0">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-9 h-9 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center shadow-xs shrink-0">
-                              <Trophy className="w-4 h-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-xs font-black tracking-wider">历史成就档案</span>
-                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                                  theme === 'midnight' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-amber-500/20 text-amber-900 border-amber-500/30'
-                                } border`}>
-                                  {getAchievementLevel(userStats.totalCycles, userStats.totalSeconds).level}
-                                </span>
-                              </div>
-                              <div className={`text-[10px] sm:text-[11px] font-bold ${
-                                theme === 'midnight' ? 'text-amber-200/80' : 'text-amber-900/80'
-                              } truncate`}>
-                                {getAchievementLevel(userStats.totalCycles, userStats.totalSeconds).title} · {getAchievementLevel(userStats.totalCycles, userStats.totalSeconds).desc}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* 2-Metric Grid */}
-                        <div className="grid grid-cols-2 gap-2.5 w-full min-w-0">
-                          <div className={`w-full min-w-0 p-3 sm:p-3.5 rounded-2xl ${
-                            theme === 'midnight' ? 'bg-[#251d42] border-purple-800/40' : 'bg-white/85 border-black/5'
-                          } border flex items-center gap-2.5 shadow-xs`}>
-                            <div className="w-9 h-9 rounded-xl bg-rose-500/15 text-rose-400 flex items-center justify-center shrink-0">
-                              <Clock className="w-4 h-4" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="text-[10px] font-bold opacity-60 truncate">累积训练时长</div>
-                              <div className={`text-sm sm:text-base font-black ${theme === 'midnight' ? 'text-rose-300' : 'text-rose-700'} tabular-nums truncate`}>
-                                {formatTotalTime(userStats.totalSeconds)}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className={`w-full min-w-0 p-3 sm:p-3.5 rounded-2xl ${
-                            theme === 'midnight' ? 'bg-[#251d42] border-purple-800/40' : 'bg-white/85 border-black/5'
-                          } border flex items-center gap-2.5 shadow-xs`}>
-                            <div className="w-9 h-9 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center shrink-0">
-                              <RotateCcw className="w-4 h-4" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="text-[10px] font-bold opacity-60 truncate">完成循环总数</div>
-                              <div className={`text-sm sm:text-base font-black ${theme === 'midnight' ? 'text-purple-300' : 'text-purple-700'} tabular-nums truncate`}>
-                                {userStats.totalCycles} <span className="text-xs font-bold opacity-75">轮</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Weekly 7-Day Training Frequency Heatmap Visualizer (Hidden in Mobile Portrait, Full in Landscape / Desktop) */}
-                    {(!isMobilePortrait || showPortraitChartsManual) && (
-                      <div className="w-full min-w-0 animate-fadeIn">
-                        <WeeklyActivityChart userStats={userStats} isDark={theme === 'midnight'} />
-                      </div>
-                    )}
-
-                    {/* Desktop / Landscape Mindful Advice Pill Card */}
-                    <div className={`w-full min-w-0 hidden lg:flex p-4 rounded-2xl ${
-                      theme === 'midnight' ? 'bg-[#1c1533] border-purple-800/40 text-purple-200/80' : 'bg-white/60 border-black/5 text-slate-600'
-                    } border backdrop-blur-xs items-start gap-3 text-xs leading-relaxed`}>
-                      <Heart className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                      <div className="min-w-0">
-                        <strong className={theme === 'midnight' ? 'text-rose-200' : 'text-slate-800'}>身心律动小贴士：</strong>
-                        训练过程中请保持腹式深呼吸，肩膀与盆底肌肉放松，在冲刺阶梯时感受神经边缘张力，勿急于释放。
-                      </div>
-                    </div>
-
                   </div>
 
                 </div>
