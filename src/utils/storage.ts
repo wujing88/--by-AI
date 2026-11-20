@@ -343,7 +343,7 @@ export function setStoredMuted(muted: boolean): void {
   }
 }
 
-export function getStoredTheme(defaultTheme: ThemeType = 'peach'): ThemeType {
+export function getStoredTheme(defaultTheme: ThemeType = 'midnight'): ThemeType {
   try {
     const saved = safeStorage.getItem(KEYS.THEME) as ThemeType;
     if (saved && ['peach', 'mint', 'taro', 'cheese', 'midnight'].includes(saved)) {
@@ -361,7 +361,7 @@ export function setStoredTheme(theme: ThemeType): void {
   }
 }
 
-export function getStoredFollowSystemTheme(defaultValue: boolean = true): boolean {
+export function getStoredFollowSystemTheme(defaultValue: boolean = false): boolean {
   try {
     const saved = safeStorage.getItem(KEYS.FOLLOW_SYSTEM_THEME);
     if (saved !== null) {

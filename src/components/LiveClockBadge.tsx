@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Moon, Sun, Sunrise, Sunset } from 'lucide-react';
+import { Clock } from 'lucide-react';
 
 interface LiveClockBadgeProps {
   variant?: 'header' | 'hud' | 'banner';
@@ -7,14 +7,18 @@ interface LiveClockBadgeProps {
   isDark?: boolean;
 }
 
-export default function LiveClockBadge({ variant = 'header', className = '', isDark = false }: LiveClockBadgeProps) {
+export default function LiveClockBadge({
+  variant = 'header',
+  className = '',
+  isDark = true,
+}: LiveClockBadgeProps) {
   const [time, setTime] = useState<Date>(() => new Date());
 
   useEffect(() => {
-    const timer = setInterval(() => {
+    const timer = window.setInterval(() => {
       setTime(new Date());
     }, 1000);
-    return () => clearInterval(timer);
+    return () => window.clearInterval(timer);
   }, []);
 
   const hours = time.getHours();
@@ -22,96 +26,87 @@ export default function LiveClockBadge({ variant = 'header', className = '', isD
   const minutesStr = String(time.getMinutes()).padStart(2, '0');
   const secondsStr = String(time.getSeconds()).padStart(2, '0');
 
-  // Anti-addiction & friendly contextual tips based on time
   const getContextualReminder = (h: number) => {
     if (h >= 23 || h < 5) {
       return {
-        text: '夜已深，适度训练莫沉迷，早点休息',
-        shortText: '深夜别沉迷·早点休息',
-        icon: <Moon className="w-3.5 h-3.5 text-indigo-500" />
-      };
-    } else if (h >= 5 && h < 9) {
-      return {
-        text: '清晨律动，唤醒一天活力，适度为佳',
-        shortText: '晨间活力·适度为佳',
-        icon: <Sunrise className="w-3.5 h-3.5 text-amber-500" />
-      };
-    } else if (h >= 9 && h < 18) {
-      return {
-        text: '专注当下，合理安排节奏，健康自律',
-        shortText: '健康自律·劳逸结合',
-        icon: <Sun className="w-3.5 h-3.5 text-amber-500" />
-      };
-    } else {
-      return {
-        text: '傍晚时光，科学锻炼，掌握时间不过度',
-        shortText: '适度训练·别过度沉迷',
-        icon: <Sunset className="w-3.5 h-3.5 text-rose-500" />
+        text: '深夜时段，建议控制单次训练时长，保持充足睡眠',
+        shortText: '深夜 · 适度控制',
       };
     }
+    if (h >= 5 && h < 9) {
+      return {
+        text: '晨间时段，循序渐进唤醒节律，保持呼吸平稳',
+        shortText: '晨间 · 规律节奏',
+      };
+    }
+    if (h >= 9 && h < 18) {
+      return {
+        text: '日间时段，合理分配训练与休整，注重专注质量',
+        shortText: '日间 · 专注自律',
+      };
+    }
+    return {
+      text: '晚间时段，按计划完成阶梯循环，避免过度疲劳',
+      shortText: '晚间 · 合理节制',
+    };
   };
 
   const reminder = getContextualReminder(hours);
 
   if (variant === 'hud') {
-    // Training / Cooldown / Preparing HUD Variant
     return (
-      <div 
-        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full ${
-          isDark ? 'bg-purple-950/60 border-purple-800/60 text-purple-200' : 'bg-black/10 border-black/10 text-current'
-        } backdrop-blur-md border text-xs font-bold shadow-xs select-none ${className}`}
-        title="当前系统真实时间（提醒合理把控训练时长，避免沉迷）"
+      <div
+        className={`inline-flex items-center gap-1.5 text-xs whitespace-nowrap select-none ${
+          isDark ? 'text-slate-400' : 'text-stone-500'
+        } ${className}`}
+        title="当前本地时间"
       >
-        <Clock className="w-3.5 h-3.5 opacity-75 animate-pulse" />
-        <span className="tabular-nums font-black tracking-wider">
+        <span className={`font-numeric font-medium ${isDark ? 'text-slate-200' : 'text-stone-800'}`}>
           {hoursStr}:{minutesStr}:{secondsStr}
         </span>
-        <span className="opacity-40">|</span>
-        <span className="text-[11px] opacity-85 font-medium flex items-center gap-1">
-          {reminder.shortText}
+        <span aria-hidden="true" className="hidden sm:inline opacity-40">
+          ·
         </span>
+        <span className="hidden sm:inline">{reminder.shortText}</span>
       </div>
     );
   }
 
   if (variant === 'banner') {
-    // Large reminder banner on IDLE or CLIMAX screen
     return (
-      <div className={`w-full px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl ${
-        isDark ? 'bg-[#18122c] border-purple-800/40 text-purple-200' : 'bg-white/75 border-black/5 text-slate-800'
-      } border backdrop-blur-sm shadow-xs flex items-center justify-between gap-2 text-xs ${className}`}>
+      <div
+        className={`w-full py-2.5 px-3.5 rounded-xl border flex items-center justify-between gap-3 text-xs ${
+          isDark
+            ? 'bg-[#11131B] border-white/[0.07] text-slate-300'
+            : 'bg-white border-stone-200/90 text-stone-600'
+        } ${className}`}
+      >
         <div className="flex items-center gap-2 min-w-0">
-          <div className={`w-6 h-6 rounded-full ${isDark ? 'bg-rose-500/20 text-rose-300' : 'bg-rose-500/10 text-rose-600'} flex items-center justify-center shrink-0`}>
-            {reminder.icon}
-          </div>
-          <span className={`font-bold ${isDark ? 'text-rose-100' : 'text-slate-700'} text-[11px] sm:text-xs truncate`}>{reminder.text}</span>
+          <Clock className={`w-3.5 h-3.5 shrink-0 ${isDark ? 'text-slate-400' : 'text-stone-400'}`} />
+          <span className="truncate">{reminder.text}</span>
         </div>
-        <div className={`flex items-center gap-1 font-black ${isDark ? 'text-rose-200 bg-purple-950/80 border border-purple-800/40' : 'text-slate-900 bg-black/5'} tabular-nums px-2 sm:px-2.5 py-1 rounded-xl shrink-0 text-[11px] sm:text-xs`}>
-          <Clock className="w-3 h-3 opacity-60" />
-          <span>{hoursStr}:{minutesStr}:{secondsStr}</span>
-        </div>
+        <span
+          className={`font-numeric text-xs font-semibold shrink-0 ${
+            isDark ? 'text-slate-200' : 'text-stone-900'
+          }`}
+        >
+          {hoursStr}:{minutesStr}:{secondsStr}
+        </span>
       </div>
     );
   }
 
-  // Default 'header' Variant (Compact & Elegant for Top Bar - Hidden on small mobile to avoid top bar overcrowding)
+  // Header variant: crisp unboxed monospace clock, single-line flex-nowrap friendly
   return (
-    <div 
-      className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
-        isDark ? 'bg-[#1c1533] border-purple-800/50 text-rose-200' : 'bg-white/80 border-black/5 text-slate-800'
-      } border shadow-xs text-xs font-bold backdrop-blur-md select-none transition-all ${className}`}
-      title="当前真实时间 · 理性训练，注意休息，别沉迷"
+    <div
+      className={`inline-flex items-center gap-1.5 text-xs whitespace-nowrap select-none ${
+        isDark ? 'text-slate-300' : 'text-stone-700'
+      } ${className}`}
+      title={`当前时间 ${hoursStr}:${minutesStr}:${secondsStr} · ${reminder.shortText}`}
     >
-      <div className={`flex items-center gap-1 ${isDark ? 'text-rose-300' : 'text-slate-700'}`}>
-        <Clock className="w-3.5 h-3.5 text-rose-500" />
-        <span className="tabular-nums font-black text-[13px] tracking-wide">
-          {hoursStr}:{minutesStr}:{secondsStr}
-        </span>
-      </div>
-      <span className={`hidden md:inline-block text-[10px] font-bold ${
-        isDark ? 'text-rose-300 bg-rose-500/20 border border-rose-500/30' : 'text-rose-700/80 bg-rose-500/10'
-      } px-2 py-0.5 rounded-full`}>
-        {reminder.shortText}
+      <span className="font-numeric font-semibold tracking-tight">
+        {hoursStr}:{minutesStr}
+        <span className="hidden sm:inline opacity-70">:{secondsStr}</span>
       </span>
     </div>
   );
