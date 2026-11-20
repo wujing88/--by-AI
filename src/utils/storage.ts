@@ -16,6 +16,7 @@ const KEYS = {
   FAVORITE_LIGHT_THEME: 'rhythm_favorite_light_theme',
   SOUND_TYPE: 'rhythm_sound_type',
   AUTO_CYCLES: 'rhythm_auto_cycles',
+  HAPTICS_ENABLED: 'rhythm_haptics_enabled',
 } as const;
 
 // In-Memory fallback store if localStorage is blocked (e.g., CF sandboxed iframe, incognito mode)
@@ -435,5 +436,23 @@ export function setStoredAutoCycles(cycles: number): void {
     safeStorage.setItem(KEYS.AUTO_CYCLES, String(cycles));
   } catch (e) {
     console.error('[Storage] Error setting autoCycles:', e);
+  }
+}
+
+export function getStoredHapticsEnabled(defaultValue: boolean = true): boolean {
+  try {
+    const saved = safeStorage.getItem(KEYS.HAPTICS_ENABLED);
+    if (saved !== null) {
+      return saved === 'true';
+    }
+  } catch {}
+  return defaultValue;
+}
+
+export function setStoredHapticsEnabled(enabled: boolean): void {
+  try {
+    safeStorage.setItem(KEYS.HAPTICS_ENABLED, String(enabled));
+  } catch (e) {
+    console.error('[Storage] Error setting hapticsEnabled:', e);
   }
 }

@@ -24,8 +24,10 @@ import {
   BarChart3,
   EyeOff,
   Square,
+  Vibrate,
 } from 'lucide-react';
 import { metronome } from './utils/audio';
+import { haptics } from './utils/haptics';
 import ParticleEffect from './components/ParticleEffect';
 import WeeklyActivityChart from './components/WeeklyActivityChart';
 import LiveClockBadge from './components/LiveClockBadge';
@@ -60,6 +62,8 @@ import {
   setStoredSoundType,
   getStoredAutoCycles,
   setStoredAutoCycles,
+  getStoredHapticsEnabled,
+  setStoredHapticsEnabled,
 } from './utils/storage';
 
 const STAGE_DURATIONS: Record<BpmState, number> = {
@@ -118,6 +122,9 @@ export default function App() {
   const [phrase, setPhrase] = useState<string>('');
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [muted, setMuted] = useState<boolean>(() => getStoredMuted());
+  const [hapticsEnabled, setHapticsEnabled] = useState<boolean>(() =>
+    getStoredHapticsEnabled(true)
+  );
   const [showParticles, setShowParticles] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<'sound' | 'theme'>('sound');
@@ -149,6 +156,10 @@ export default function App() {
 
   const timerRef = useRef<number | null>(null);
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
+  const hapticsEnabledRef = useRef<boolean>(hapticsEnabled);
+  const bpmRef = useRef<BpmState>(bpm);
+  const appStateRef = useRef<AppState>(appState);
+  const hapticsSupported = haptics.isSupported();
 
   const t = THEMES[theme];
   const isDark = t.isDark;
@@ -197,6 +208,28 @@ export default function App() {
     setStoredMuted(muted);
     metronome.setMuted(muted);
   }, [muted]);
+
+  useEffect(() => {
+    hapticsEnabledRef.current = hapticsEnabled;
+    setStoredHapticsEnabled(hapticsEnabled);
+    if (!hapticsEnabled) {
+      haptics.cancel();
+    }
+  }, [hapticsEnabled]);
+
+  useEffect(() => {
+    bpmRef.current = bpm;
+  }, [bpm]);
+
+  useEffect(() => {
+    appStateRef.current = appState;
+  }, [appState]);
+
+  useEffect(() => {
+    return () => {
+      haptics.cancel();
+    };
+  }, []);
 
   // System dark mode listener (only overrides when followSystemTheme is explicitly enabled)
   useEffect(() => {
@@ -309,10 +342,13 @@ export default function App() {
     realtimePresence.setTrainingState(isTraining, bpm);
   }, [appState, bpm]);
 
-  // Metronome Beat Pulse callback
+  // Metronome Beat Pulse callback (drives visual pulse + BPM-adaptive haptics)
   useEffect(() => {
     metronome.onBeat = () => {
       setPulse(true);
+      if (hapticsEnabledRef.current && appStateRef.current === 'RUNNING') {
+        haptics.beat(bpmRef.current);
+      }
       window.setTimeout(() => setPulse(false), 130);
     };
   }, []);
@@ -332,6 +368,7 @@ export default function App() {
   const exitToConsole = useCallback(() => {
     setAppState('IDLE');
     metronome.stop(true, 0.35);
+    haptics.cancel();
     setShowParticles(false);
     setTimeLeft(0);
     setBpm(30);
@@ -386,6 +423,9 @@ export default function App() {
       try {
         metronome.playSample(soundType);
       } catch {}
+      if (hapticsEnabledRef.current) {
+        haptics.prep();
+      }
     },
     [autoCycles, initAudio, soundType]
   );
@@ -395,6 +435,9 @@ export default function App() {
     if (appState !== 'PREPARING') return;
 
     if (prepCount <= 0) {
+      if (hapticsEnabledRef.current) {
+        haptics.stageChange();
+      }
       executeStartRunning(targetMode, autoCycles);
       return;
     }
@@ -406,6 +449,9 @@ export default function App() {
           try {
             metronome.playSample(soundType);
           } catch {}
+          if (hapticsEnabledRef.current) {
+            haptics.prep();
+          }
         }
         return next;
       });
@@ -443,6 +489,9 @@ export default function App() {
               setBpm(nextBpm);
               metronome.setBpm(nextBpm);
               updatePhrase(nextBpm);
+              if (hapticsEnabledRef.current) {
+                haptics.stageChange();
+              }
               const nextDuration = Math.floor(Math.random() * 105) + 15;
               setTotalDuration(nextDuration);
               return nextDuration;
@@ -473,6 +522,9 @@ export default function App() {
               try {
                 metronome.playEdgeWarning(nextVal);
               } catch {}
+              if (hapticsEnabledRef.current) {
+                haptics.edgeWarning(nextVal);
+              }
               if (nextVal === 10) {
                 setPhrase('最后 10 秒冲刺，稳定呼吸锁定临界边界');
               }
@@ -488,6 +540,9 @@ export default function App() {
                 setBpm(nextBpm);
                 metronome.setBpm(nextBpm);
                 updatePhrase(nextBpm);
+                if (hapticsEnabledRef.current) {
+                  haptics.stageChange();
+                }
                 setTotalDuration(STAGE_DURATIONS[nextBpm]);
                 return STAGE_DURATIONS[nextBpm];
               } else {
@@ -498,6 +553,9 @@ export default function App() {
                   setCurrentCycle(nextCycleNum);
                   setBpm(30);
                   metronome.setBpm(30);
+                  if (hapticsEnabledRef.current) {
+                    haptics.stageChange();
+                  }
                   setPhrase(`进入第 ${nextCycleNum} 轮 · 降至 30 BPM 平复呼吸`);
                   setTotalDuration(STAGE_DURATIONS[30]);
                   return STAGE_DURATIONS[30];
@@ -505,6 +563,9 @@ export default function App() {
                   setUserStats((s) => recordSession(s));
                   setAppState('CLIMAX');
                   setShowParticles(true);
+                  if (hapticsEnabledRef.current) {
+                    haptics.climax();
+                  }
                   return 0;
                 }
               }
@@ -536,7 +597,16 @@ export default function App() {
         setTimeLeft((prev) => {
           if (prev <= 1) {
             setAppState('RUNNING');
+            if (hapticsEnabledRef.current) {
+              haptics.stageChange();
+            }
             if (playMode === 'RANDOM') {
+              return 0;
+            } else if (playMode === 'MANUAL') {
+              setBpm(prevBpm);
+              metronome.setBpm(prevBpm);
+              updatePhrase(prevBpm);
+              setTotalDuration(0);
               return 0;
             } else {
               setBpm(prevBpm);
@@ -561,10 +631,16 @@ export default function App() {
     setAppState('COOLDOWN');
     setTimeLeft(30);
     setTotalDuration(30);
+    if (hapticsEnabledRef.current) {
+      haptics.cooldown();
+    }
   }, [bpm]);
 
   const resumeFromCooldown = useCallback(() => {
     setAppState('RUNNING');
+    if (hapticsEnabledRef.current) {
+      haptics.stageChange();
+    }
     if (playMode === 'RANDOM') {
       setTimeLeft(0);
     } else if (playMode === 'MANUAL') {
@@ -587,6 +663,9 @@ export default function App() {
       setBpm(nextBpm);
       metronome.setBpm(nextBpm);
       updatePhrase(nextBpm);
+      if (hapticsEnabledRef.current) {
+        haptics.stageChange();
+      }
     },
     [updatePhrase]
   );
@@ -653,10 +732,8 @@ export default function App() {
 
   const handleStageTap = useCallback(() => {
     initAudio();
-    if (appState === 'RUNNING' || appState === 'COOLDOWN') {
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate(12);
-      }
+    if ((appState === 'RUNNING' || appState === 'COOLDOWN') && hapticsEnabledRef.current) {
+      haptics.tap();
     }
   }, [appState, initAudio]);
 
@@ -1583,6 +1660,9 @@ export default function App() {
                   e.stopPropagation();
                   setAppState('CLIMAX');
                   setShowParticles(true);
+                  if (hapticsEnabledRef.current) {
+                    haptics.climax();
+                  }
                 }}
                 className={`flex-1 min-h-[52px] py-3 px-4 rounded-xl text-sm font-semibold text-white inline-flex items-center justify-center gap-2 transition-colors active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-rose-500 ${t.accentBg} ${t.accentBgHover}`}
               >
@@ -1680,45 +1760,104 @@ export default function App() {
               </button>
             </div>
 
-            {/* Sound Presets Tab */}
+            {/* Sound Presets & Haptics Tab */}
             {activeSettingsTab === 'sound' && (
-              <div className="space-y-2">
-                <p className={`text-xs px-0.5 ${t.textMuted}`}>
-                  点击任一音色即可通过本地音频引擎实时试听：
-                </p>
-                <div className="flex flex-col gap-2">
-                  {SOUND_PRESETS.map((preset) => {
-                    const isSelected = soundType === preset.id;
-                    return (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => {
-                          setSoundType(preset.id);
-                          metronome.playSample(preset.id, true);
-                        }}
-                        className={`w-full min-h-[56px] px-4 py-3 rounded-xl border text-left flex items-center justify-between gap-3 transition-colors focus-visible:outline-2 focus-visible:outline-rose-500 ${
-                          isSelected
-                            ? `${t.accentBorder} ${t.accentSoft}`
-                            : `${t.surfaceElevated} ${t.border} ${t.surfaceHover}`
-                        }`}
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 text-sm font-semibold">
-                            <span>{preset.name}</span>
-                            <span aria-hidden="true" className="opacity-35 text-xs">
-                              ·
-                            </span>
-                            <span className={`text-xs font-normal ${t.textMuted}`}>
-                              {preset.tag}
-                            </span>
+              <div className="space-y-4">
+                {/* Adaptive Haptic Feedback Toggle */}
+                <div
+                  className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 ${t.surfaceElevated} ${t.border}`}
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <Vibrate
+                      className={`w-4 h-4 shrink-0 mt-0.5 ${
+                        hapticsEnabled ? t.accentText : t.textMuted
+                      }`}
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-semibold">触觉震动反馈</span>
+                        <span className={`text-[11px] ${t.textMuted}`}>
+                          {hapticsEnabled ? '已开启' : '已关闭'}
+                        </span>
+                      </div>
+                      <p className={`text-[11px] mt-0.5 leading-relaxed ${t.textMuted}`}>
+                        随节拍速度自适应脉冲，并在阶段切换、倒计时预警及触屏时提供物理震动提示（静音时依然可用）
+                      </p>
+                      {!hapticsSupported && (
+                        <p className={`text-[11px] mt-1 ${t.textMuted} opacity-75`}>
+                          当前浏览器暂不支持网页震动接口，配置将在支持的移动设备上自动生效
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={hapticsEnabled}
+                    aria-label="切换触觉震动反馈"
+                    onClick={() => {
+                      const next = !hapticsEnabled;
+                      setHapticsEnabled(next);
+                      if (next) {
+                        haptics.test();
+                      } else {
+                        haptics.cancel();
+                      }
+                    }}
+                    className={`w-11 h-6 rounded-full p-0.5 transition-colors shrink-0 focus-visible:outline-2 focus-visible:outline-rose-500 ${
+                      hapticsEnabled ? t.accentBg : isDark ? 'bg-white/15' : 'bg-stone-300'
+                    }`}
+                  >
+                    <span
+                      className={`block w-5 h-5 rounded-full bg-white transition-transform duration-150 ${
+                        hapticsEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Timbre Presets */}
+                <div className="space-y-2">
+                  <p className={`text-xs px-0.5 ${t.textMuted}`}>
+                    节拍音色（点击即可通过本地音频引擎实时试听）：
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {SOUND_PRESETS.map((preset) => {
+                      const isSelected = soundType === preset.id;
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => {
+                            setSoundType(preset.id);
+                            metronome.playSample(preset.id, true);
+                            if (hapticsEnabledRef.current) {
+                              haptics.tap();
+                            }
+                          }}
+                          className={`w-full min-h-[56px] px-4 py-3 rounded-xl border text-left flex items-center justify-between gap-3 transition-colors focus-visible:outline-2 focus-visible:outline-rose-500 ${
+                            isSelected
+                              ? `${t.accentBorder} ${t.accentSoft}`
+                              : `${t.surfaceElevated} ${t.border} ${t.surfaceHover}`
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 text-sm font-semibold">
+                              <span>{preset.name}</span>
+                              <span aria-hidden="true" className="opacity-35 text-xs">
+                                ·
+                              </span>
+                              <span className={`text-xs font-normal ${t.textMuted}`}>
+                                {preset.tag}
+                              </span>
+                            </div>
+                            <p className={`text-xs mt-0.5 truncate ${t.textMuted}`}>{preset.desc}</p>
                           </div>
-                          <p className={`text-xs mt-0.5 truncate ${t.textMuted}`}>{preset.desc}</p>
-                        </div>
-                        {isSelected && <Check className={`w-4 h-4 shrink-0 ${t.accentText}`} />}
-                      </button>
-                    );
-                  })}
+                          {isSelected && <Check className={`w-4 h-4 shrink-0 ${t.accentText}`} />}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
